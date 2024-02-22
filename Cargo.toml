@@ -16,3 +16,7 @@ pollster = "0.3"
 wgpu = "0.18.0"
 winit = "0.28"
 
+[build-dependencies]
+anyhow = "1.0"
+fs_extra = "1.2"
+glob = "0.3"

@@ -3,12 +3,13 @@ use model::Vertex;
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
-    event_loop::{self, ControlFlow, EventLoop},
+    event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
 
 mod texture;
 mod model;
+mod resources;
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -95,10 +96,7 @@ struct CameraUniform {
 
 impl CameraUniform {
     fn new() -> Self {
-        use cgmath::SquareMatrix;
-        Self {
-            view_proj: cgmath::Matrix4::identity().into(),
-        }
+        Self { view_proj: cgmath::Matrix4::identity().into() }
     }
 
     fn update_view_proj(&mut self, camera: &Camera) {
@@ -209,6 +207,7 @@ struct State {
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
     depth_texture: texture::Texture,
+    obj_model: model::Model,
 }
 
 impl State {
@@ -404,9 +403,14 @@ impl State {
 
         let camera_controller = CameraController::new(0.2);
 
+        const SPACE_BETWEEN: f32 = 3.0;
         let instances = (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {
             (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                let position = cgmath::Vector3 { x: x as f32, y: 0.0, z: z as f32 } - INSTANCE_DISPLACEMENT;
+                let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+                let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+
+                let position = cgmath::Vector3 { x, y: 0.0, z };
+
                 let rotation = if position.is_zero() {
                     cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(0.0))
                 } else {
@@ -428,6 +432,10 @@ impl State {
             }
         );
 
+        let obj_model = resources::load_model("cube.obj", &device, &queue, &texture_bind_group_layout)
+            .await
+            .unwrap();
+
         Self {
             window,
             surface,
@@ -446,6 +454,7 @@ impl State {
             instances,
             instance_buffer,
             depth_texture,
+            obj_model,
         }
     }
 
@@ -517,15 +526,13 @@ impl State {
                 timestamp_writes: None,
             });
 
+            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
 
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instances.len() as _);
+            use model::DrawModel;
+            render_pass.draw_mesh_instanced(&self.obj_model.meshes[0], 0..self.instances.len() as u32);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -555,7 +562,7 @@ pub async fn run() {
                             input:
                                 KeyboardInput {
                                     state: ElementState::Pressed,
-                                    virtual_keycode: Some(VirtualKeyCode::Escape),
+                                    virtual_keycode: Some(VirtualKeyCode::Escape) | Some(VirtualKeyCode::Q),
                                     ..
                                 },
                             ..

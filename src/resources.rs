@@ -1,6 +1,4 @@
-use std::{io::{BufReader, Cursor, BufRead}, fmt::format};
-
-use bytemuck::bytes_of;
+use std::io::{BufReader, Cursor};
 use wgpu::util::DeviceExt;
 
 use crate::{model, texture};

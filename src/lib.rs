@@ -185,6 +185,7 @@ impl CameraController {
     }
 }
 // Changed
+#[allow(dead_code)]
 const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
 const NUM_INSTANCES_PER_ROW: u32 = 10;
 const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(NUM_INSTANCES_PER_ROW as f32 * 0.5, 0.0, NUM_INSTANCES_PER_ROW as f32 * 0.5);
@@ -248,8 +249,9 @@ impl State {
             .formats
             .iter()
             .copied()
-            .filter(|f| f.is_srgb())
-            .next()
+            // .filter(|f| f.is_srgb())
+            // .next()
+            .find(|f| f.is_srgb())
             .unwrap_or(surface_caps.formats[0]);
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -528,11 +530,12 @@ impl State {
 
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
+
+            let mesh = &self.obj_model.meshes[0];
+            let material = &self.obj_model.materials[mesh.material];
 
             use model::DrawModel;
-            render_pass.draw_mesh_instanced(&self.obj_model.meshes[0], 0..self.instances.len() as u32);
+            render_pass.draw_mesh_instanced(mesh, material, 0..self.instances.len() as u32, &self.camera_bind_group);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

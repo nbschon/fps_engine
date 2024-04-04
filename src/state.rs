@@ -13,6 +13,58 @@ pub struct InstanceRaw {
     model: [[f32; 4]; 4],
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct VertexRaw {
+    position: [f32; 3],
+    tex_coords: [f32; 2],
+}
+
+impl VertexRaw {
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        use std::mem;
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<VertexRaw>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    shader_location: 1,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
+            ],
+        }
+    }
+}
+
+const VERTICES: &[VertexRaw] = &[
+    VertexRaw {
+        position: [-0.0868241, 0.49240386, 0.0],
+        tex_coords: [0.4131759, 0.00759614],
+    }, // A
+    VertexRaw {
+        position: [-0.49513406, 0.06958647, 0.0],
+        tex_coords: [0.0048659444, 0.43041354],
+    }, // B
+    VertexRaw {
+        position: [-0.21918549, -0.44939706, 0.0],
+        tex_coords: [0.28081453, 0.949397],
+    }, // C
+    VertexRaw {
+        position: [0.35966998, -0.3473291, 0.0],
+        tex_coords: [0.85967, 0.84732914],
+    }, // D
+    VertexRaw {
+        position: [0.44147372, 0.2347359, 0.0],
+        tex_coords: [0.9414737, 0.2652641],
+    }, // E
+];
+
 impl InstanceRaw {
     fn desc() -> wgpu::VertexBufferLayout::<'static> {
         use std::mem;
@@ -102,6 +154,8 @@ impl CameraUniform {
 
 pub struct CameraController {
     speed: f32,
+    is_up_pressed: bool,
+    is_down_pressed: bool,
     is_forward_pressed: bool,
     is_backward_pressed: bool,
     is_left_pressed: bool,
@@ -112,6 +166,8 @@ impl CameraController {
     fn new(speed: f32) -> Self {
         Self {
             speed,
+            is_up_pressed: false,
+            is_down_pressed: false,
             is_forward_pressed: false,
             is_backward_pressed: false,
             is_left_pressed: false,
@@ -132,6 +188,14 @@ impl CameraController {
             } => {
                 let is_pressed = *state == ElementState::Pressed;
                 match keycode {
+                    VirtualKeyCode::Space => {
+                        self.is_up_pressed = is_pressed;
+                        true
+                    }
+                    VirtualKeyCode::LShift => {
+                        self.is_down_pressed = is_pressed;
+                        true
+                    }
                     VirtualKeyCode::W | VirtualKeyCode::Up => {
                         self.is_forward_pressed = is_pressed;
                         true
@@ -316,6 +380,8 @@ impl State {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera);
 
+        let camera_controller = CameraController::new(0.2);
+
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
             contents: bytemuck::cast_slice(&[camera_uniform]),
@@ -395,8 +461,6 @@ impl State {
             },
             multiview: None,
         });
-
-        let camera_controller = CameraController::new(0.2);
 
         const SPACE_BETWEEN: f32 = 3.0;
         let instances = (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {

@@ -2,13 +2,14 @@ use state::*;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
+    window::WindowBuilder,
 };
 
 mod texture;
 mod model;
 mod resources;
 mod state;
+mod wall;
 
 pub async fn run() {
     env_logger::init();

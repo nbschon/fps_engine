@@ -461,7 +461,7 @@ impl State {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[VertexRaw::desc()],
+                buffers: &[Wall::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,

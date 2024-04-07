@@ -5,7 +5,7 @@ use winit::{
     // event_loop::{ControlFlow, EventLoop},
     window::{Window},
 };
-use crate::{model::*, resources, texture::*, wall::Wall};
+use crate::{model::*, resources, texture::*, wall::{Wall, WallVertex}, room::Room};
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -41,65 +41,6 @@ impl VertexRaw {
         }
     }
 }
-
-// const VERTICES: &[VertexRaw] = &[
-//     VertexRaw {
-//         position: [-0.0868241, 0.49240386, 0.0],
-//         tex_coords: [0.4131759, 0.00759614],
-//     }, // A
-//     VertexRaw {
-//         position: [-0.49513406, 0.06958647, 0.0],
-//         tex_coords: [0.0048659444, 0.43041354],
-//     }, // B
-//     VertexRaw {
-//         position: [-0.21918549, -0.44939706, 0.0],
-//         tex_coords: [0.28081453, 0.949397],
-//     }, // C
-//     VertexRaw {
-//         position: [0.35966998, -0.3473291, 0.0],
-//         tex_coords: [0.85967, 0.84732914],
-//     }, // D
-//     VertexRaw {
-//         position: [0.44147372, 0.2347359, 0.0],
-//         tex_coords: [0.9414737, 0.2652641],
-//     }, // E
-// ];
-//
-// const INDICES: &[u16] = &[
-//     0, 1, 4, 
-//     1, 2, 4, 
-//     2, 3, 4
-// ];
-const VERTICES: &[VertexRaw] = &[
-    VertexRaw {
-        position: [-0.5, 0.5, 0.2],
-        tex_coords: [0.4131759, 0.00759614],
-    }, // A
-    VertexRaw {
-        position: [-0.5, -0.5, 0.0],
-        tex_coords: [0.0048659444, 0.43041354],
-    }, // B
-    VertexRaw {
-        position: [0.5, -0.5, 0.0],
-        tex_coords: [0.28081453, 0.949397],
-    }, // C
-    VertexRaw {
-        position: [0.5, 0.5, 0.2],
-        tex_coords: [0.85967, 0.84732914],
-    }, // D
-];
-
-const INDICES: &[u16] = &[
-    0, 1, 3, 
-    1, 2, 3, 
-];
-
-const TEST_WALL: Wall = Wall {
-    left: (-0.2, 0.0), 
-    right: (0.2, 0.0), 
-    top: 0.5, 
-    bottom: -0.5,
-};
 
 impl InstanceRaw {
     fn desc() -> wgpu::VertexBufferLayout::<'static> {
@@ -280,9 +221,6 @@ impl CameraController {
         }
     }
 }
-// Changed
-// const NUM_INSTANCES_PER_ROW: u32 = 10;
-// const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(NUM_INSTANCES_PER_ROW as f32 * 0.5, 0.0, NUM_INSTANCES_PER_ROW as f32 * 0.5);
 
 pub struct State {
     surface: wgpu::Surface,
@@ -304,6 +242,7 @@ pub struct State {
     camera_bind_group: wgpu::BindGroup,
     camera_controller: CameraController,
     window: Window,
+    room: Room,
 }
 
 impl State {
@@ -461,7 +400,7 @@ impl State {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[Wall::desc()],
+                buffers: &[WallVertex::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -512,20 +451,28 @@ impl State {
         //     .await
         //     .unwrap();
 
+        let mut room = Room::new();
+        room.add_wall(Wall::new((-0.2, 0.0), (0.2, 0.0), 0.5, -0.5));
+        room.add_wall(Wall::new((-0.3, 0.0), (-0.3, 0.2), 0.5, -0.5));
+
+        println!("all verts: {:?}", &room.all_verts());
+        println!("all indices: {:?}", &room.all_indices());
+
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(&TEST_WALL.vert_pos()[..]),
+            // contents: bytemuck::cast_slice(&TEST_WALL.vert_pos()[..]),
             // contents: bytemuck::cast_slice(VERTICES),
+            contents: bytemuck::cast_slice(&room.all_verts()[..]),
             usage: wgpu::BufferUsages::VERTEX,
         });
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(&TEST_WALL.indices()[..]),
+            // contents: bytemuck::cast_slice(&TEST_WALL.indices()[..]),
             // contents: bytemuck::cast_slice(INDICES),
+            contents: bytemuck::cast_slice(&room.all_indices()[..]),
             usage: wgpu::BufferUsages::INDEX,
         });
-        let num_indices = TEST_WALL.indices().len() as u32;
-        // let num_indices = INDICES.len() as u32;
+        let num_indices = room.all_indices().len() as u32;
 
         Self {
             window,
@@ -546,6 +493,7 @@ impl State {
             camera_buffer,
             camera_bind_group,
             camera_controller,
+            room,
         }
     }
 
@@ -623,6 +571,17 @@ impl State {
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+
+            // let div = self.num_indices / self.room.walls.len() as u32;
+            // println!("indices: {}, # walls: {}, idcs/n_walls: {}", self.num_indices, self.room.walls.len(), div);
+
+            // for (i, wall) in self.room.walls.iter().enumerate() {
+            //     render_pass.draw_indexed(
+            //         (i * 4)..(self.num_indices / self.room.walls.len() as u32) + (i as u32 * 4), 
+            //         (i * 4) as i32, 
+            //         0..1
+            //     );
+            // }
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
         }
 

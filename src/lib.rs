@@ -10,6 +10,7 @@ mod model;
 mod resources;
 mod state;
 mod wall;
+mod room;
 
 pub async fn run() {
     env_logger::init();

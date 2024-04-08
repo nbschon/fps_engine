@@ -9,10 +9,6 @@ impl Room {
         Self { walls: vec![] }
     }
 
-    pub fn add_wall(&mut self, wall: Wall) {
-        self.walls.push(wall);
-    }
-
     pub fn all_verts(&self) -> Vec<WallVertex> {
         self.walls.iter()
             .map(|w| w.vert_pos())

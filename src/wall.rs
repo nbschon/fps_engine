@@ -52,20 +52,21 @@ impl Wall {
         }
     }
 
-    pub fn desc() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-            ],
-        }
-    }
+    // pub fn desc() -> wgpu::VertexBufferLayout<'static> {
+    //     wgpu::VertexBufferLayout {
+    //         array_stride: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+    //         step_mode: wgpu::VertexStepMode::Vertex,
+    //         attributes: &[
+    //             wgpu::VertexAttribute {
+    //                 offset: 0,
+    //                 shader_location: 0,
+    //                 format: wgpu::VertexFormat::Float32x3,
+    //             },
+    //         ],
+    //     }
+    // }
 
+    #[rustfmt::skip]
     pub fn indices(&self) -> Vec<u16> {
         vec![
             0, 1, 3,

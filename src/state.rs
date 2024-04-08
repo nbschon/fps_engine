@@ -2,10 +2,9 @@ use cgmath::prelude::*;
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
-    // event_loop::{ControlFlow, EventLoop},
-    window::{Window},
+    window::Window,
 };
-use crate::{model::*, resources, texture::*, wall::{Wall, WallVertex}, room::Room};
+use crate::{texture::*, wall::*, room::Room};
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -452,8 +451,8 @@ impl State {
         //     .unwrap();
 
         let mut room = Room::new();
-        room.add_wall(Wall::new((-0.2, 0.0), (0.2, 0.0), 0.5, -0.5));
-        room.add_wall(Wall::new((-0.3, 0.0), (-0.3, 0.2), 0.5, -0.5));
+        room.walls.push(Wall::new((-0.2, 0.0), (0.2, 0.0), 0.5, -0.5));
+        room.walls.push(Wall::new((-0.3, 0.0), (-0.3, 0.2), 0.5, -0.5));
 
         println!("all verts: {:?}", &room.all_verts());
         println!("all indices: {:?}", &room.all_indices());
@@ -582,6 +581,7 @@ impl State {
             //         0..1
             //     );
             // }
+
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
         }
 

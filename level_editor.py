@@ -36,11 +36,6 @@ class MyGame(arcade.Window):
         self.points: list[tuple[float, float]] = []
         self.pan_cam: bool = False
         self.shift_pressed: bool = False
-        # self.grid = []
-        # for row in range(ROW_COUNT):
-        #     self.grid.append([])
-        #     for _ in range(COL_COUNT):
-        #         self.grid[row].append(0)
 
     def setup(self):
         pass
@@ -56,33 +51,41 @@ class MyGame(arcade.Window):
 
         X_COUNT = 40
         Y_COUNT = 40
+        MARGIN = 2
 
         # Call draw() on all your sprite lists below
         for y in range(Y_COUNT):
             for x in range(X_COUNT):
-                center_x = (x * self.rect_width) + self.rect_width / 2
-                center_y = (y * self.rect_height) + self.rect_height / 2
+                # center_x = (x * self.rect_width) + self.rect_width / 2
+                # center_y = (y * self.rect_height) + self.rect_height / 2
+                center_x = (MARGIN + self.rect_width) * x + MARGIN + self.rect_width // 2
+                center_y = (MARGIN + self.rect_height) * y + MARGIN + self.rect_height // 2
                 arcade.draw_rectangle_filled(
-                    center_x + 1 + self.cam_x, 
-                    center_y + 1 + self.cam_y, 
-                    self.rect_width - 2, 
-                    self.rect_height - 2, 
+                    center_x + self.cam_x, 
+                    center_y + self.cam_y, 
+                    self.rect_width, 
+                    self.rect_height, 
                     color.BLACK
                 )
 
         for p in self.points:
             circle_x, circle_y = p
-            arcade.draw_circle_filled(circle_x * self.rect_width, circle_y * self.rect_height, self.rect_width / 3, color.CYAN)
+            arcade.draw_circle_filled(
+                circle_x * self.rect_width, 
+                circle_y * self.rect_height, 
+                self.rect_width / 3, 
+                color.CYAN
+            )
 
         # TODO: make this less dumb
-        coord_draw_x = ((self.mouse_x // self.rect_width)) * self.rect_width + self.rect_width / 2 + 1 if self.shift_pressed else (self.mouse_x)
-        coord_draw_y = ((self.mouse_y // self.rect_height)) * self.rect_height + self.rect_width / 2 + 1 if self.shift_pressed else (self.mouse_y)
+        # coord_draw_x = ((self.mouse_x // self.rect_width)) * self.rect_width + self.rect_width / 2 + 1 if self.shift_pressed else (self.mouse_x)
+        # coord_draw_y = ((self.mouse_y // self.rect_height)) * self.rect_height + self.rect_width / 2 + 1 if self.shift_pressed else (self.mouse_y)
 
         arcade.draw_rectangle_filled(
             coord_draw_x,
             coord_draw_y,
-            self.rect_width - 2, 
-            self.rect_height - 2, 
+            self.rect_width, 
+            self.rect_height, 
             color.RED
         )
 

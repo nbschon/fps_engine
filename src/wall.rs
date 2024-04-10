@@ -1,4 +1,7 @@
+use serde::{Serialize, Deserialize};
+
 #[repr(C)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Wall {
     pub left: (f32, f32),
     pub right: (f32, f32),

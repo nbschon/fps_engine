@@ -512,6 +512,26 @@ impl State {
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
+        match event {
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        // state,
+                        virtual_keycode: Some(keycode),
+                        ..
+                    },
+                ..
+            } => {
+                // let is_pressed = *state == ElementState::Pressed;
+                match keycode {
+                    VirtualKeyCode::Return => {
+                        println!("{:?}", serde_json::to_string(&self.room.walls));
+                    }
+                    _ => {}
+                }
+            }
+            _ => {},
+        }
         self.camera_controller.process_events(event)
     }
 

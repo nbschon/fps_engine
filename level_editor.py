@@ -1,19 +1,32 @@
 import arcade
 import arcade.key
-from arcade import color
-from typing import Optional
+import copy
 import json
+from arcade import color
+from enum import Enum, auto
+from math import atan2, pi
+from typing import Optional
+
+class Placements(Enum):
+    Point = auto()
+    Wall = auto()
 
 class Wall:
-    left: tuple[float, float]
-    right: tuple[float, float]
+    left_x: float
+    left_z: float
+    right_x: float
+    right_z: float
     top: float
     bottom: float
     color: tuple[int, int, int]
 
     def __init__(self, left: tuple[float, float], right: tuple[float, float], top: float, bottom: float, color: tuple[int, int, int]=(255, 0, 0)):
-        self.left = left
-        self.right = right 
+        left_x, left_z = left
+        right_x, right_z = right
+        self.left_x = left_x
+        self.left_z = left_z
+        self.right_x = right_x
+        self.right_z = right_z
         self.top = top 
         self.bottom = bottom
         self.color = color
@@ -51,6 +64,7 @@ class MyGame(arcade.Window):
         self.radius = self.rect_width / 2
         self.node_left: Optional[tuple[float, float]] = None
         self.node_right: Optional[tuple[float, float]] = None
+        self.undo_stack: list[Placements] = []
 
     def setup(self):
         for y in range(Y_COUNT):
@@ -80,16 +94,7 @@ class MyGame(arcade.Window):
         # Call draw() on all your sprite lists below
 
         self.grid_shape_list.draw()
-
-        for p in self.points:
-            circle_x, circle_y = p
-            arcade.draw_circle_filled(
-                circle_x * (self.rect_width + (MARGIN)),# + radius / 2, 
-                circle_y * (self.rect_height + (MARGIN)),# + radius / 2, 
-                self.rect_width / 2, 
-                color.CYAN
-            )
-
+        self.point_shape_list.draw()
         self.line_shape_list.draw()
 
         WIDTH = (self.rect_width + (MARGIN)) * X_COUNT
@@ -123,7 +128,30 @@ class MyGame(arcade.Window):
         Normally, you'll call update() on the sprite lists that
         need it.
         """
-        pass
+        temp_points = arcade.ShapeElementList()
+        for p in self.points:
+            circle_x, circle_y = p
+            point = arcade.create_ellipse_filled(
+                circle_x * (self.rect_width + (MARGIN)),# + radius / 2, 
+                circle_y * (self.rect_height + (MARGIN)),# + radius / 2, 
+                self.rect_width / 2, 
+                self.rect_height / 2, 
+                color.CYAN
+            )
+            temp_points.append(point)
+        self.point_shape_list = temp_points
+
+        temp_lines = arcade.ShapeElementList()
+        for w in self.walls:
+            left_x, left_z = w.left_x, w.left_z
+            right_x, right_z = w.right_x, w.right_z
+            new_left_x = left_x * (self.rect_width + MARGIN)
+            new_left_z = left_z * (self.rect_width + MARGIN)
+            new_right_x = right_x * (self.rect_width + MARGIN)
+            new_right_z = right_z * (self.rect_width + MARGIN)
+            line = arcade.create_line(new_left_x, new_left_z, new_right_x, new_right_z, color.RADICAL_RED)
+            temp_lines.append(line)
+        self.line_shape_list = temp_lines
 
     def on_key_press(self, key, key_modifiers):
         """
@@ -143,8 +171,36 @@ class MyGame(arcade.Window):
             case arcade.key.MINUS:
                 self.rect_width = max(self.rect_width - 2, 10)
                 self.rect_height = max(self.rect_height - 2, 10)
-            case arcade.key.ENTER:
-                print(json.dumps(self.walls))
+            case arcade.key.A:
+                for w in self.walls:
+                    left_x, left_z = w.left
+                    right_x, right_z = w.right
+                    y = (right_z - left_z)
+                    x = (right_x - left_x)
+                    rad = atan2(y, x)
+                    print(f"rad: {rad}, deg: {(rad * 180) / pi}")
+            case arcade.key.C:
+                self.walls.clear()
+                self.line_shape_list = arcade.ShapeElementList()
+                self.node_left = None
+            case arcade.key.Z if key_modifiers & (arcade.key.MOD_CTRL | arcade.key.MOD_COMMAND):
+                if len(self.undo_stack) > 0:
+                    last_placement = self.undo_stack.pop()
+                    match last_placement:
+                        case Placements.Point:
+                            self.points.pop()
+                        case Placements.Wall:
+                            self.walls.pop()
+                    self.node_left = None
+            case arcade.key.S if key_modifiers & (arcade.key.MOD_CTRL | arcade.key.MOD_COMMAND):
+                new_walls = copy.deepcopy(self.walls)
+                for nw in new_walls:
+                    nw.left_x -= X_COUNT / 2
+                    nw.left_z -= Y_COUNT / 2
+                    nw.right_x -= X_COUNT / 2
+                    nw.right_z -= Y_COUNT / 2
+                with open("level.json", "w") as f:
+                    json.dump(new_walls, f, default=vars, indent=4)
             case _:
                 pass
 
@@ -193,17 +249,13 @@ class MyGame(arcade.Window):
 
                             left_x, left_z = self.node_left
 
-                            new_left_x = left_x * (self.rect_width + MARGIN)
-                            new_left_z = left_z * (self.rect_width + MARGIN)
-                            new_c_x = c_x * (self.rect_width + MARGIN)
-                            new_c_z = c_z * (self.rect_width + MARGIN)
-
-                            self.line_shape_list.append(arcade.create_line(new_left_x, new_left_z, new_c_x, new_c_z, color.RADICAL_RED))
-                            self.walls.append(Wall((left_x, left_z), (c_x, c_z), 0.5, -0.5))
+                            self.walls.append(Wall((c_x, c_z), (left_x, left_z), 3.0, 0.0))
                             self.node_left = None
+                            self.undo_stack.append(Placements.Wall)
 
                 if add_point:
                     self.points.append((float(self.coord_x), float(self.coord_y)))
+                    self.undo_stack.append(Placements.Point)
                     print(f"screen x: {x}, screen y: {y}, coord x: {self.coord_x}, coord y: {self.coord_y}")
             case arcade.MOUSE_BUTTON_RIGHT:
                 print("right pressed")

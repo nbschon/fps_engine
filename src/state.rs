@@ -245,7 +245,7 @@ pub struct State {
 }
 
 impl State {
-    pub async fn new(window: Window) -> Self {
+    pub async fn new(window: Window) -> std::io::Result<Self> {
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -451,8 +451,9 @@ impl State {
         //     .unwrap();
 
         let mut room = Room::new();
-        room.walls.push(Wall::new((-0.2, 0.0), (0.2, 0.0), 0.5, -0.5));
-        room.walls.push(Wall::new((-0.3, 0.0), (-0.3, 0.2), 0.5, -0.5));
+        // room.walls.push(Wall::new((-0.2, 0.0), (0.2, 0.0), 0.5, -0.5));
+        // room.walls.push(Wall::new((-0.3, 0.0), (-0.3, 0.2), 0.5, -0.5));
+        room.load_from_json("level.json".to_string())?;
 
         println!("all verts: {:?}", &room.all_verts());
         println!("all indices: {:?}", &room.all_indices());
@@ -473,7 +474,7 @@ impl State {
         });
         let num_indices = room.all_indices().len() as u32;
 
-        Self {
+        Ok(Self {
             window,
             surface,
             device,
@@ -493,7 +494,7 @@ impl State {
             camera_bind_group,
             camera_controller,
             room,
-        }
+        })
     }
 
     pub fn window(&self) -> &Window {

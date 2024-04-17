@@ -1,3 +1,6 @@
+use std::fs;
+use std::io;
+
 use crate::wall::*;
 
 pub struct Room {
@@ -11,8 +14,7 @@ impl Room {
 
     pub fn all_verts(&self) -> Vec<WallVertex> {
         self.walls.iter()
-            .map(|w| w.vert_pos())
-            .flatten()
+            .flat_map(|w| w.vert_pos())
             .collect::<Vec<WallVertex>>()
     }
 
@@ -23,5 +25,13 @@ impl Room {
         }
 
         indices
+    }
+
+    pub fn load_from_json(&mut self, path: String) -> io::Result<()> {
+        let contents = fs::read_to_string(path).unwrap_or("".to_string());
+
+        self.walls = serde_json::from_str(&contents)?;
+
+        Ok(())
     }
 }

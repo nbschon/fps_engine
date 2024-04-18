@@ -11,6 +11,7 @@ bytemuck = { version = "1.12", features = ["derive"] }
 cgmath = "0.18"
 env_logger = "0.10"
 image = { version = "0.24", features = ["png", "jpeg"] }
+instant = "0.1"
 log = "0.4"
 pollster = "0.3"
 serde = { version = "1.0.197", features = ["derive"] }

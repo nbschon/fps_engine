@@ -240,7 +240,13 @@ class MyGame(arcade.Window):
                 add_point: bool = True
                 for p in self.points:
                     c_x, c_z = p
-                    if c_x - self.radius <= self.coord_x <= c_x + self.radius and c_z - self.radius <= self.coord_y <= c_z + self.radius:
+                    left_bound = c_x - 1.0
+                    right_bound = c_x + 1.0
+                    bottom_bound = c_z - 1.0
+                    top_bound = c_z + 1.0
+                    is_x_aligned = left_bound <= self.coord_x <= right_bound
+                    is_y_aligned = bottom_bound <= self.coord_y <= top_bound
+                    if is_x_aligned and is_y_aligned:
                         add_point = False
                         print(f"p x: {c_x}, p z: {c_z}, coord x: {self.coord_x}, coord y: {self.coord_y}")
                         if self.node_left is None:

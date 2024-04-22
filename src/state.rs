@@ -4,7 +4,7 @@ use winit::{
     event::*,
     window::Window,
 };
-use crate::{texture::*, wall::*, room::Room, camera::*};
+use crate::{texture::{*, self}, wall::*, room::Room, camera::*};
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -132,6 +132,61 @@ pub struct State {
     pub mouse_pressed: bool,
 }
 
+fn create_render_pipeline(
+    device: &wgpu::Device,
+    layout: &wgpu::PipelineLayout,
+    color_format: wgpu::TextureFormat,
+    depth_format: Option<wgpu::TextureFormat>,
+    vertex_layouts: &[wgpu::VertexBufferLayout],
+    shader: wgpu::ShaderModuleDescriptor,
+) -> wgpu::RenderPipeline {
+    let shader = device.create_shader_module(shader);
+
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("Render Pipeline"),
+        layout: Some(layout),
+        vertex: wgpu::VertexState { 
+            module: &shader, 
+            entry_point: "vs_main", 
+            buffers: vertex_layouts, 
+        },
+        fragment: Some(wgpu::FragmentState { 
+            module: &shader, 
+            entry_point: "fs_main", 
+            targets: &[Some(wgpu::ColorTargetState { 
+                format: color_format, 
+                blend: Some(wgpu::BlendState { 
+                    color: wgpu::BlendComponent::REPLACE, 
+                    alpha: wgpu::BlendComponent::REPLACE, 
+                }), 
+                write_mask: wgpu::ColorWrites::ALL 
+            })], 
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: Some(wgpu::Face::Back),
+            polygon_mode: wgpu::PolygonMode::Fill,
+            unclipped_depth: false,
+            conservative: false,
+        },
+        depth_stencil: depth_format.map(|format| wgpu::DepthStencilState {
+            format,
+            depth_write_enabled: true,
+            depth_compare: wgpu::CompareFunction::Less,
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        }),
+        multisample: wgpu::MultisampleState { 
+            count: 1, 
+            mask: !0, 
+            alpha_to_coverage_enabled: false, 
+        },
+        multiview: None
+    })
+}
+
 impl State {
     pub async fn new(window: Window) -> std::io::Result<Self> {
         let size = window.inner_size();
@@ -183,7 +238,7 @@ impl State {
         };
         surface.configure(&device, &config);
 
-        let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
+        // let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
         surface.configure(&device, &config);
 
         let diffuse_bytes = include_bytes!("../tree.png");
@@ -227,13 +282,13 @@ impl State {
             label: Some("diffuse_bind_group"),
         });
 
-        let camera = Camera::new((0.0, 1.0, 0.0), cgmath::Deg(-90.0), cgmath::Deg(0.0));
+        let camera = Camera::new((0.0, 1.5, 0.0), cgmath::Deg(-90.0), cgmath::Deg(-10.0));
         let projection = Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 100.0);
 
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera, &projection);
 
-        let camera_controller = CameraController::new(4.0, 0.4);
+        let camera_controller = CameraController::new(3.0, 0.3);
 
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
@@ -245,7 +300,7 @@ impl State {
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -274,49 +329,20 @@ impl State {
 
         let depth_texture = Texture::create_depth_texture(&device, &config, "depth_texture");
 
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[WallVertex::desc()],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState { 
-                        color: wgpu::BlendComponent::REPLACE, 
-                        alpha: wgpu::BlendComponent::REPLACE,
-                    }),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                unclipped_depth: false,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: Texture::DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview: None,
-        });
+        let render_pipeline = {
+            let shader = wgpu::ShaderModuleDescriptor { 
+                label: Some("Shader"), 
+                source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+            };
+            create_render_pipeline(
+                &device, 
+                &render_pipeline_layout, 
+                config.format, 
+                Some(Texture::DEPTH_FORMAT), 
+                &[WallVertex::desc()], 
+            shader,
+            )
+        };
 
         let mut room = Room::new();
         room.load_from_json("level.json".to_string())?;
@@ -371,12 +397,12 @@ impl State {
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
+            self.projection.resize(new_size.width, new_size.height);
             self.size = new_size;
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
             self.depth_texture = Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
-            self.projection.resize(new_size.width, new_size.height);
         }
     }
 
@@ -385,26 +411,17 @@ impl State {
             WindowEvent::KeyboardInput {
                 input:
                     KeyboardInput {
+                        virtual_keycode: Some(key),
                         state,
-                        virtual_keycode: Some(keycode),
                         ..
                     },
                 ..
-            } => {
-                // let is_pressed = *state == ElementState::Pressed;
-                match keycode {
-                    VirtualKeyCode::Return => {
-                        println!("{:?}", serde_json::to_string(&self.room.walls));
-                    }
-                    _ => {}
-                }
-                self.camera_controller.process_keyboard(*keycode, *state)
-            }
+            } => self.camera_controller.process_keyboard(*key, *state),
             WindowEvent::MouseWheel { delta, .. } => {
                 self.camera_controller.process_scroll(delta);
                 true
             }
-            WindowEvent::MouseInput { 
+            WindowEvent::MouseInput {
                 button: MouseButton::Left,
                 state,
                 ..

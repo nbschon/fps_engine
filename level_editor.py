@@ -7,6 +7,13 @@ from enum import Enum, auto
 from math import atan2, pi
 from typing import Optional
 
+class ScaleFactor(Enum):
+    One = 1.0
+    OnePtTwoFive = 1.25
+    OnePtFive = 1.5
+    OnePtSevenFive = 1.75
+    Two = 2.0
+
 class Actions(Enum):
     Point = auto()
     Wall = auto()
@@ -39,8 +46,8 @@ SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 SCREEN_TITLE = "level editor for fps_engine"
 
-X_COUNT = 20
-Y_COUNT = 20
+X_COUNT = 40
+Y_COUNT = 40
 MARGIN = 2
 
 class MyGame(arcade.Window):
@@ -66,6 +73,7 @@ class MyGame(arcade.Window):
         self.node_left: Optional[tuple[float, float]] = None
         self.node_right: Optional[tuple[float, float]] = None
         self.undo_stack: list[Actions] = []
+        self.scale_factor: ScaleFactor = ScaleFactor.One
 
     def setup(self):
         for y in range(Y_COUNT):
@@ -120,6 +128,8 @@ class MyGame(arcade.Window):
         arcade.draw_text(f"coord y: {self.coord_y}", start_x, start_y - 60, color.WHITE, 20)
         arcade.draw_text(f"# points: {len(self.points)}", start_x, start_y - 90, color.WHITE, 20)
         arcade.draw_text(f"# lines:  {len(self.line_shape_list)}", start_x, start_y - 120, color.WHITE, 20)
+
+        arcade.draw_text(f"level export scale factor: {self.scale_factor.value}", SCREEN_WIDTH - 360, start_y, color.WHITE, 20)
 
     def on_update(self, delta_time):
         """
@@ -196,13 +206,41 @@ class MyGame(arcade.Window):
                     self.node_left = None
             case arcade.key.S if key_modifiers & (arcade.key.MOD_CTRL | arcade.key.MOD_COMMAND):
                 new_walls = copy.deepcopy(self.walls)
+                class PtExport:
+                    def __init__(self, left: float, right: float) -> None:
+                        self.left = left
+                        self.right = right
+                new_points: list[PtExport] = []
                 for nw in new_walls:
+                    nw.left_x *= self.scale_factor.value
+                    nw.left_z *= self.scale_factor.value
+                    nw.right_x *= self.scale_factor.value
+                    nw.right_z *= self.scale_factor.value
                     nw.left_x -= X_COUNT / 2
                     nw.left_z -= Y_COUNT / 2
                     nw.right_x -= X_COUNT / 2
                     nw.right_z -= Y_COUNT / 2
+                for p in self.points:
+                    l, r = p
+                    l -= X_COUNT / 2
+                    r -= Y_COUNT / 2
+                    new_points.append(PtExport(l, r))
                 with open("level.json", "w") as f:
                     json.dump(new_walls, f, default=vars, indent=4)
+                    # json.dump(new_points, f, default=vars, indent=4)
+            case arcade.key.S:
+                match self.scale_factor:
+                    case ScaleFactor.One:
+                        self.scale_factor = ScaleFactor.OnePtTwoFive
+                    case ScaleFactor.OnePtTwoFive:
+                        self.scale_factor = ScaleFactor.OnePtFive
+                    case ScaleFactor.OnePtFive:
+                        self.scale_factor = ScaleFactor.OnePtSevenFive
+                    case ScaleFactor.OnePtSevenFive:
+                        self.scale_factor = ScaleFactor.Two
+                    case ScaleFactor.Two:
+                        self.scale_factor = ScaleFactor.One
+
             case _:
                 pass
 
@@ -258,7 +296,7 @@ class MyGame(arcade.Window):
 
                             left_x, left_z = self.node_left
 
-                            self.walls.append(Wall((c_x, c_z), (left_x, left_z), 4.0, 0.0))
+                            self.walls.append(Wall((c_x, c_z), (left_x, left_z), 5.0, 0.0))
                             self.node_left = None
                             self.undo_stack.append(Actions.Wall)
 

@@ -282,7 +282,7 @@ impl State {
             label: Some("diffuse_bind_group"),
         });
 
-        let camera = Camera::new((0.0, 1.5, 0.0), cgmath::Deg(-90.0), cgmath::Deg(-10.0));
+        let camera = Camera::new((0.0, 2.0, 0.0), cgmath::Deg(-90.0), cgmath::Deg(-10.0));
         let projection = Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 100.0);
 
         let mut camera_uniform = CameraUniform::new();

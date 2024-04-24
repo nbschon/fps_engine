@@ -10,7 +10,7 @@ mod model;
 mod resources;
 mod state;
 mod wall;
-mod room;
+mod level;
 mod camera;
 
 pub async fn run() {

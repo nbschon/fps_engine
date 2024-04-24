@@ -51,6 +51,20 @@ impl WallVertex {
     }
 }
 
+fn comp_to_srgb(comp: u8) -> f32 {
+    ((comp as f32 / 255.0 + 0.055) / 1.055).powf(2.4)
+}
+
+pub fn hex_as_srgb(color: u32) -> [f32; 3] {
+    let r = ((color & 0xFF0000) >> 16) as u8;
+    let g = ((color & 0x00FF00) >> 8) as u8;
+    let b = (color & 0x0000FF) as u8;
+    let r_adj = comp_to_srgb(r);
+    let g_adj = comp_to_srgb(g);
+    let b_adj = comp_to_srgb(b);
+    [r_adj, g_adj, b_adj]
+}
+
 impl Wall {
     #[allow(dead_code)]
     pub fn new(l: (f32, f32), r: (f32, f32), t: f32, b: f32) -> Self {
@@ -74,33 +88,16 @@ impl Wall {
         ]
     }
 
-    fn comp_to_srgb(&self, comp: u8) -> f32 {
-        ((comp as f32 / 255.0 + 0.055) / 1.055).powf(2.4)
-    }
-
-    fn hex_as_srgb(&self, color: u32) -> [f32; 3] {
-        let r = ((color & 0xFF0000) >> 16) as u8;
-        let g = ((color & 0x00FF00) >> 8) as u8;
-        let b = (color & 0x0000FF) as u8;
-        let r_adj = self.comp_to_srgb(r);
-        let g_adj = self.comp_to_srgb(g);
-        let b_adj = self.comp_to_srgb(b);
-        [r_adj, g_adj, b_adj]
-    }
-
     pub fn vert_pos(&self) -> Vec<WallVertex> {
         let top_left = [self.left_x, self.top, self.left_z];
         let bottom_left = [self.left_x, self.bottom, self.left_z];
         let bottom_right = [self.right_x, self.bottom, self.right_z];
         let top_right = [self.right_x, self.top, self.right_z];
-        // let tl_vert = WallVertex::new(top_left, [1.0, 0.0, 0.0]);
-        // let bl_vert = WallVertex::new(bottom_left, [0.0, 1.0, 0.0]);
-        // let br_vert = WallVertex::new(bottom_right, [0.0, 0.0, 1.0]);
-        // let tr_vert = WallVertex::new(top_right, [1.0, 1.0, 0.0]);
-        let tl_vert = WallVertex::new(top_left, self.hex_as_srgb(0x4287F5));
-        let bl_vert = WallVertex::new(bottom_left, self.hex_as_srgb(0x4779C9));
-        let br_vert = WallVertex::new(bottom_right, self.hex_as_srgb(0x4287F5));
-        let tr_vert = WallVertex::new(top_right, self.hex_as_srgb(0x175ED1));
+
+        let tl_vert = WallVertex::new(top_left, hex_as_srgb(0x4287F5));
+        let bl_vert = WallVertex::new(bottom_left, hex_as_srgb(0x4779C9));
+        let br_vert = WallVertex::new(bottom_right, hex_as_srgb(0x4287F5));
+        let tr_vert = WallVertex::new(top_right, hex_as_srgb(0x175ED1));
 
         vec![tl_vert, bl_vert, br_vert, tr_vert]
     }

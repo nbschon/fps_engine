@@ -19,6 +19,12 @@ class Actions(Enum):
     Wall = auto()
     SetLeft = auto()
 
+class Export:
+    def __init__(self) -> None:
+        self.scale_factor: float = 0.0
+        self.walls: list[Wall] = []
+        self.points: list[tuple[float, float]] = []
+
 class Wall:
     left_x: float
     left_z: float
@@ -191,7 +197,7 @@ class MyGame(arcade.Window):
                     print(f"rad: {rad}, deg: {(rad * 180) / pi}")
             case arcade.key.C:
                 self.walls.clear()
-                self.line_shape_list = arcade.ShapeElementList()
+                self.points.clear()
                 self.node_left = None
             case arcade.key.Z if key_modifiers & (arcade.key.MOD_CTRL | arcade.key.MOD_COMMAND):
                 if len(self.undo_stack) > 0:
@@ -206,11 +212,7 @@ class MyGame(arcade.Window):
                     self.node_left = None
             case arcade.key.S if key_modifiers & (arcade.key.MOD_CTRL | arcade.key.MOD_COMMAND):
                 new_walls = copy.deepcopy(self.walls)
-                class PtExport:
-                    def __init__(self, left: float, right: float) -> None:
-                        self.left = left
-                        self.right = right
-                new_points: list[PtExport] = []
+                export = Export()
                 for nw in new_walls:
                     nw.left_x *= self.scale_factor.value
                     nw.left_z *= self.scale_factor.value
@@ -220,13 +222,15 @@ class MyGame(arcade.Window):
                     nw.left_z -= Y_COUNT / 2
                     nw.right_x -= X_COUNT / 2
                     nw.right_z -= Y_COUNT / 2
+                    export.walls.append(nw)
                 for p in self.points:
                     l, r = p
                     l -= X_COUNT / 2
                     r -= Y_COUNT / 2
-                    new_points.append(PtExport(l, r))
+                    export.points.append((l, r))
+                export.scale_factor = self.scale_factor.value
                 with open("level.json", "w") as f:
-                    json.dump(new_walls, f, default=vars, indent=4)
+                    json.dump(export, f, default=vars, indent=4)
                     # json.dump(new_points, f, default=vars, indent=4)
             case arcade.key.S:
                 match self.scale_factor:

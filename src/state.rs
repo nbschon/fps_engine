@@ -4,7 +4,7 @@ use winit::{
     event::*,
     window::Window,
 };
-use crate::{texture::{*, self}, wall::*, room::Room, camera::*};
+use crate::{texture::{*, self}, wall::*, level::*, camera::*};
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -128,7 +128,7 @@ pub struct State {
     camera_bind_group: wgpu::BindGroup,
     pub camera_controller: CameraController,
     window: Window,
-    room: Room,
+    level: Level,
     pub mouse_pressed: bool,
 }
 
@@ -344,27 +344,22 @@ impl State {
             )
         };
 
-        let mut room = Room::new();
-        room.load_from_json("level.json".to_string())?;
+        let level: Level = load_from_json("level.json".to_string())?;
 
-        println!("all verts: {:?}", &room.all_verts());
-        println!("all indices: {:?}", &room.all_indices());
+        println!("all verts: {:?}", &level.all_verts());
+        println!("all indices: {:?}", &level.all_indices());
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            // contents: bytemuck::cast_slice(&TEST_WALL.vert_pos()[..]),
-            // contents: bytemuck::cast_slice(VERTICES),
-            contents: bytemuck::cast_slice(&room.all_verts()[..]),
+            contents: bytemuck::cast_slice(&level.all_verts()[..]),
             usage: wgpu::BufferUsages::VERTEX,
         });
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
-            // contents: bytemuck::cast_slice(&TEST_WALL.indices()[..]),
-            // contents: bytemuck::cast_slice(INDICES),
-            contents: bytemuck::cast_slice(&room.all_indices()[..]),
+            contents: bytemuck::cast_slice(&level.all_indices()[..]),
             usage: wgpu::BufferUsages::INDEX,
         });
-        let num_indices = room.all_indices().len() as u32;
+        let num_indices = level.all_indices().len() as u32;
 
         Ok(Self {
             window,
@@ -386,7 +381,7 @@ impl State {
             camera_buffer,
             camera_bind_group,
             camera_controller,
-            room,
+            level,
             mouse_pressed: false,
         })
     }

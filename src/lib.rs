@@ -2,7 +2,7 @@ use state::*;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
+    window::{WindowBuilder, CursorGrabMode},
 };
 
 mod texture;
@@ -17,6 +17,10 @@ pub async fn run() {
     env_logger::init();
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
+    window.set_cursor_grab(CursorGrabMode::Confined)
+        .or_else(|_e| window.set_cursor_grab(CursorGrabMode::Locked))
+        .unwrap();
+    window.set_cursor_visible(false);
 
     let mut state = crate::State::new(window).await.unwrap();
     let mut last_render_time = instant::Instant::now();
@@ -74,9 +78,7 @@ pub async fn run() {
             Event::DeviceEvent { 
                 event: DeviceEvent::MouseMotion { delta, },
                 ..
-            } => if state.mouse_pressed {
-                state.camera_controller.process_mouse(delta.0, delta.1)
-            }
+            } => state.camera_controller.process_mouse(delta.0, delta.1),
             _ => {}
         }
     });

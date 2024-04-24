@@ -30,10 +30,7 @@ impl Level {
         let floor_bl = WallVertex::new([self.bottom_left.0, 0.0, self.bottom_left.1], hex_as_srgb(0x60996F));
         let floor_tl = WallVertex::new([self.top_left.0, 0.0, self.top_left.1], hex_as_srgb(0x72B584));
 
-        walls.push(floor_tr);
-        walls.push(floor_br);
-        walls.push(floor_bl);
-        walls.push(floor_tl);
+        walls.extend_from_slice(&[floor_tr, floor_br, floor_bl, floor_tl]);
 
         walls
     }

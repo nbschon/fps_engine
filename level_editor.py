@@ -34,9 +34,7 @@ class Wall:
     bottom: float
     color: tuple[int, int, int]
 
-    def __init__(self, left: tuple[float, float], right: tuple[float, float], top: float, bottom: float, color: tuple[int, int, int]=(255, 0, 0)):
-        left_x, left_z = left
-        right_x, right_z = right
+    def __init__(self, left_x: float, left_z: float, right_x: float, right_z: float, top: float, bottom: float, color: tuple[int, int, int]=(255, 0, 0)):
         self.left_x = left_x
         self.left_z = left_z
         self.right_x = right_x
@@ -195,6 +193,10 @@ class MyGame(arcade.Window):
                     x = (right_x - left_x)
                     rad = atan2(y, x)
                     print(f"rad: {rad}, deg: {(rad * 180) / pi}")
+            case arcade.key.C if key_modifiers & (arcade.key.MOD_ALT | arcade.key.MOD_OPTION):
+                self.walls.clear()
+            case arcade.key.C if key_modifiers & (arcade.key.MOD_CTRL | arcade.key.MOD_COMMAND):
+                self.points.clear()
             case arcade.key.C:
                 self.walls.clear()
                 self.points.clear()
@@ -227,11 +229,12 @@ class MyGame(arcade.Window):
                     l, r = p
                     l -= X_COUNT / 2
                     r -= Y_COUNT / 2
+                    l *= (self.scale_factor.value)
+                    r *= (self.scale_factor.value)
                     export.points.append((l, r))
                 export.scale_factor = self.scale_factor.value
                 with open("level.json", "w") as f:
                     json.dump(export, f, default=vars, indent=4)
-                    # json.dump(new_points, f, default=vars, indent=4)
             case arcade.key.S:
                 match self.scale_factor:
                     case ScaleFactor.One:
@@ -244,6 +247,39 @@ class MyGame(arcade.Window):
                         self.scale_factor = ScaleFactor.Two
                     case ScaleFactor.Two:
                         self.scale_factor = ScaleFactor.One
+            case arcade.key.O if key_modifiers & (arcade.key.MOD_CTRL | arcade.key.MOD_COMMAND):
+                if not self.points and not self.walls:
+                    try:
+                        with open("level.json") as f:
+                            d = json.load(f)
+                            scale_factor: float = d["scale_factor"]
+                            walls: list[Wall] = []
+                            for w in d["walls"]:
+                                wc = Wall(**w)
+                                wc.left_x += X_COUNT / 2
+                                wc.left_z += Y_COUNT / 2
+                                wc.right_x += X_COUNT / 2
+                                wc.right_z += Y_COUNT / 2
+                                wc.left_x /= scale_factor
+                                wc.left_z /= scale_factor
+                                wc.right_x /= scale_factor
+                                wc.right_z /= scale_factor
+                                walls.append(wc)
+                            points: list[tuple[float, float]] = []
+                            for pt in d["points"]:
+                                l, r = pt
+                                l /= scale_factor
+                                r /= scale_factor
+                                l += X_COUNT / 2
+                                r += Y_COUNT / 2
+                                points.append((l, r))
+                            print(f"sf: {scale_factor:.2}")
+                            print(f"walls: {walls}")
+                            print(f"pts: {points}")
+                            self.walls = walls
+                            self.points = points
+                    except KeyError:
+                        print("bad level format!")
 
             case _:
                 pass
@@ -289,28 +325,31 @@ class MyGame(arcade.Window):
                     is_x_aligned = left_bound <= self.coord_x <= right_bound
                     is_y_aligned = bottom_bound <= self.coord_y <= top_bound
                     if is_x_aligned and is_y_aligned:
-                        add_point = False
-                        print(f"p x: {c_x}, p z: {c_z}, coord x: {self.coord_x}, coord y: {self.coord_y}")
-                        if self.node_left is None:
-                            print("setting left node")
-                            self.node_left = p
-                            self.undo_stack.append(Actions.SetLeft)
+                        if key_modifiers & (arcade.key.MOD_CTRL | arcade.key.MOD_COMMAND):
+                            self.points.remove(p)
+                            return
                         else:
-                            print("creating line")
+                            add_point = False
+                            # print(f"p x: {c_x}, p z: {c_z}, coord x: {self.coord_x}, coord y: {self.coord_y}")
+                            if self.node_left is None:
+                                # print("setting left node")
+                                self.node_left = p
+                                self.undo_stack.append(Actions.SetLeft)
+                            else:
+                                # print("creating line")
 
-                            left_x, left_z = self.node_left
+                                left_x, left_z = self.node_left
 
-                            self.walls.append(Wall((c_x, c_z), (left_x, left_z), 5.0, 0.0))
-                            self.node_left = None
-                            self.undo_stack.append(Actions.Wall)
+                                self.walls.append(Wall(c_x, c_z, left_x, left_z, 5.0, 0.0))
+                                self.node_left = None
+                                self.undo_stack.append(Actions.Wall)
 
                 if add_point:
                     self.points.append((float(self.coord_x), float(self.coord_y)))
                     self.undo_stack.append(Actions.Point)
-                    print(f"screen x: {x}, screen y: {y}, coord x: {self.coord_x}, coord y: {self.coord_y}")
+                    # print(f"screen x: {x}, screen y: {y}, coord x: {self.coord_x}, coord y: {self.coord_y}")
             case arcade.MOUSE_BUTTON_RIGHT:
-                print("right pressed")
-                self.pan_cam = True
+                self.node_left = None
 
     def on_mouse_release(self, x, y, button, key_modifiers):
         """

@@ -4,7 +4,7 @@ use winit::{
     event::*,
     window::Window,
 };
-use crate::{texture::{*, self}, wall::*, level::*, camera::*};
+use crate::{texture::*, wall::*, level::*, camera::*};
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -190,6 +190,7 @@ fn create_render_pipeline(
 impl State {
     pub async fn new(window: Window) -> std::io::Result<Self> {
         let size = window.inner_size();
+        println!("{:?}", &size);
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
@@ -236,9 +237,6 @@ impl State {
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
         };
-        surface.configure(&device, &config);
-
-        // let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
         surface.configure(&device, &config);
 
         let diffuse_bytes = include_bytes!("../tree.png");
@@ -483,17 +481,6 @@ impl State {
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-
-            // let div = self.num_indices / self.room.walls.len() as u32;
-            // println!("indices: {}, # walls: {}, idcs/n_walls: {}", self.num_indices, self.room.walls.len(), div);
-
-            // for (i, wall) in self.room.walls.iter().enumerate() {
-            //     render_pass.draw_indexed(
-            //         (i * 4)..(self.num_indices / self.room.walls.len() as u32) + (i as u32 * 4), 
-            //         (i * 4) as i32, 
-            //         0..1
-            //     );
-            // }
 
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
         }

@@ -286,7 +286,7 @@ impl State {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera, &projection);
 
-        let camera_controller = CameraController::new(3.0, 0.3);
+        let camera_controller = CameraController::new(4.0, 0.3);
 
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
@@ -344,8 +344,8 @@ impl State {
 
         let level: Level = load_from_json("level.json".to_string())?;
 
-        println!("all verts: {:?}", &level.all_verts());
-        println!("all indices: {:?}", &level.all_indices());
+        // println!("all verts: {:?}", &level.all_verts());
+        // println!("all indices: {:?}", &level.all_indices());
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),

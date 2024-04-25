@@ -250,10 +250,10 @@ class MyGame(arcade.Window):
                     export.walls.append(nw)
                 for p in self.points:
                     l, r = p
-                    l -= X_COUNT / 2
-                    r -= Y_COUNT / 2
                     l *= (self.scale_factor.value)
                     r *= (self.scale_factor.value)
+                    l -= X_COUNT / 2
+                    r -= Y_COUNT / 2
                     export.points.append((l, r))
                 export.scale_factor = self.scale_factor.value
                 with open("level.json", "w") as f:
@@ -291,14 +291,14 @@ class MyGame(arcade.Window):
                             points: list[tuple[float, float]] = []
                             for pt in d["points"]:
                                 l, r = pt
-                                l /= scale_factor
-                                r /= scale_factor
                                 l += X_COUNT / 2
                                 r += Y_COUNT / 2
+                                l /= scale_factor
+                                r /= scale_factor
                                 points.append((l, r))
-                            print(f"sf: {scale_factor:.2}")
-                            print(f"walls: {walls}")
-                            print(f"pts: {points}")
+                            # print(f"sf: {scale_factor:.2}")
+                            # print(f"walls: {walls}")
+                            # print(f"pts: {points}")
                             self.walls = walls
                             self.points = points
                     except KeyError:

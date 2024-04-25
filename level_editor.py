@@ -4,7 +4,7 @@ import copy
 import json
 from arcade import color
 from enum import Enum, auto
-from math import atan2, pi
+from math import cos, sin, atan2, pi
 from typing import Optional
 
 class ScaleFactor(Enum):
@@ -50,8 +50,8 @@ SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 SCREEN_TITLE = "level editor for fps_engine"
 
-X_COUNT = 40
-Y_COUNT = 40
+X_COUNT = 90
+Y_COUNT = 50
 MARGIN = 2
 
 class MyGame(arcade.Window):
@@ -127,11 +127,11 @@ class MyGame(arcade.Window):
         start_x: int = 10
         start_y: int = SCREEN_HEIGHT - font_size - 10
 
-        arcade.draw_text(f"mouse x: {self.mouse_x}, mouse y: {self.mouse_y}", start_x, start_y, color.WHITE, 20)
-        arcade.draw_text(f"coord x: {self.coord_x}", start_x, start_y - 30, color.WHITE, 20)
-        arcade.draw_text(f"coord y: {self.coord_y}", start_x, start_y - 60, color.WHITE, 20)
-        arcade.draw_text(f"# points: {len(self.points)}", start_x, start_y - 90, color.WHITE, 20)
-        arcade.draw_text(f"# lines:  {len(self.line_shape_list)}", start_x, start_y - 120, color.WHITE, 20)
+        # arcade.draw_text(f"mouse x: {self.mouse_x}, mouse y: {self.mouse_y}", start_x, start_y, color.WHITE, 20)
+        # arcade.draw_text(f"coord x: {self.coord_x}", start_x, start_y - 30, color.WHITE, 20)
+        # arcade.draw_text(f"coord y: {self.coord_y}", start_x, start_y - 60, color.WHITE, 20)
+        arcade.draw_text(f"# points: {len(self.points)}", start_x, start_y, color.WHITE, 20)
+        arcade.draw_text(f"# lines:  {len(self.line_shape_list)}", start_x, start_y - 30, color.WHITE, 20)
 
         arcade.draw_text(f"level export scale factor: {self.scale_factor.value}", SCREEN_WIDTH - 360, start_y, color.WHITE, 20)
 
@@ -165,6 +165,29 @@ class MyGame(arcade.Window):
             new_right_z = right_z * (self.rect_width + MARGIN)
             line = arcade.create_line(new_left_x, new_left_z, new_right_x, new_right_z, color.RADICAL_RED)
             temp_lines.append(line)
+        for w in self.walls:
+            left_x = w.left_x * (self.rect_width + MARGIN)
+            left_z = w.left_z * (self.rect_width + MARGIN)
+            right_x = w.right_x * (self.rect_width + MARGIN)
+            right_z = w.right_z * (self.rect_width + MARGIN)
+
+            y = (left_z - right_z)
+            x = (left_x - right_x)
+
+            x_0 = (left_x + right_x) / 2
+            y_0 = (left_z + right_z) / 2
+            rad = atan2(x, y)
+            size = 1
+            to_deg_num = 180 / size
+            to_deg_denom = pi / size
+            coeff = to_deg_num / to_deg_denom
+            # TODO: actually make this scale appropriately
+            x_1 = (x_0 + sin(rad + pi / 2) * coeff)
+            y_1 = (y_0 + cos(rad + pi / 2) * coeff)
+
+            normal_line = arcade.create_line(x_0, y_0, x_1, y_1, color.RICH_BRILLIANT_LAVENDER)
+            temp_lines.append(normal_line)
+
         self.line_shape_list = temp_lines
 
     def on_key_press(self, key, key_modifiers):
@@ -175,7 +198,7 @@ class MyGame(arcade.Window):
         https://api.arcade.academy/en/latest/arcade.key.html
         """
         match key:
-            case arcade.key.Q | arcade.key.ESCAPE:
+            case arcade.key.Q | arcade.key.ESCAPE if key_modifiers & (arcade.key.MOD_CTRL | arcade.key.MOD_COMMAND):
                 arcade.exit()
             case arcade.key.LSHIFT:
                 self.shift_pressed = True

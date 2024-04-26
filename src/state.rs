@@ -1,3 +1,5 @@
+use std::iter::zip;
+
 use cgmath::{
     Deg, 
     prelude::*
@@ -124,6 +126,8 @@ pub struct State {
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
+    ch_vertex_buffer: wgpu::Buffer,
+    ch_index_buffer: wgpu::Buffer,
     num_indices: u32,
     diffuse_bind_group: wgpu::BindGroup,
     #[allow(dead_code)]
@@ -365,6 +369,27 @@ impl State {
         });
         let num_indices = level.all_indices().len() as u32;
 
+        let positions = [[-0.1, 0.1, 0.0], [-0.1, -0.1, 0.0], [0.1, -0.1, 0.0], [0.1, 0.1, 0.0]];
+        let colors = [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]];
+        let verts = zip(positions, colors)
+            .map(|(mut p, c)| {
+                p.reverse();
+                WallVertex::new(p, c)
+            })
+            .collect::<Vec<WallVertex>>();
+        let indices = [0, 1, 3, 1, 2, 3];
+
+        let ch_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Crosshair Vertex Buffer"),
+            contents: bytemuck::cast_slice(&verts[..]),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        let ch_index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Crosshair Index Buffer"),
+            contents: bytemuck::cast_slice(&indices[..]),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
         Ok(Self {
             window,
             surface,
@@ -375,6 +400,8 @@ impl State {
             render_pipeline,
             vertex_buffer,
             index_buffer,
+            ch_vertex_buffer,
+            ch_index_buffer,
             num_indices,
             diffuse_bind_group,
             diffuse_texture,
@@ -408,13 +435,14 @@ impl State {
     fn cast_ray(&mut self) {
         let pitch = &self.camera.pitch;
         let ray_len = pitch.cos();
-        println!("length: {:?}", ray_len);
-        self.level.walls.iter().map(|w| {
-            let x_diff = w.right_x - w.left_x;
-            let z_diff = w.right_z - w.left_z;
-            ((x_diff * x_diff) + (z_diff * z_diff)).abs().sqrt()
-        }).for_each(|l| print!("len: {l}, "));
-        println!();
+        let ray_height = pitch.sin();
+        println!("length: {:?}, height: {:?}", ray_len, ray_height);
+        // self.level.walls.iter().map(|w| {
+        //     let x_diff = w.right_x - w.left_x;
+        //     let z_diff = w.right_z - w.left_z;
+        //     ((x_diff * x_diff) + (z_diff * z_diff)).abs().sqrt()
+        // }).for_each(|l| print!("len: {l}, "));
+        // println!();
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
@@ -503,10 +531,14 @@ impl State {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
+
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+
+            render_pass.set_vertex_buffer(0, self.ch_vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.ch_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.draw_indexed(0..6 as u32, 0, 0..1);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

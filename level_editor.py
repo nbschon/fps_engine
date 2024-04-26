@@ -4,7 +4,7 @@ import copy
 import json
 from arcade import color
 from enum import Enum, auto
-from math import cos, sin, atan2, pi
+from math import cos, e, sin, atan2, pi
 from typing import Optional
 
 class ScaleFactor(Enum):
@@ -17,11 +17,11 @@ class ScaleFactor(Enum):
 class Actions(Enum):
     Point = auto()
     Wall = auto()
-    SetLeft = auto()
 
 class Export:
     def __init__(self) -> None:
         self.scale_factor: float = 0.0
+        self.start_pos: tuple[float, float] = (0.0, 0.0)
         self.walls: list[Wall] = []
         self.points: list[tuple[float, float]] = []
 
@@ -78,6 +78,7 @@ class MyGame(arcade.Window):
         self.node_right: Optional[tuple[float, float]] = None
         self.undo_stack: list[Actions] = []
         self.scale_factor: ScaleFactor = ScaleFactor.One
+        self.start_pos: tuple[float, float] = (X_COUNT / 2, Y_COUNT / 2)
 
     def setup(self):
         for y in range(Y_COUNT):
@@ -121,6 +122,15 @@ class MyGame(arcade.Window):
             self.rect_width, 
             self.rect_height, 
             color.RED
+        )
+
+        start_pos_x, start_pos_y = self.start_pos
+        arcade.draw_rectangle_filled(
+            start_pos_x * (self.rect_width + MARGIN),
+            start_pos_y * (self.rect_width + MARGIN),
+            self.rect_width, 
+            self.rect_height, 
+            color.LIME_GREEN
         )
 
         font_size: int = 20
@@ -232,8 +242,6 @@ class MyGame(arcade.Window):
                             self.points.pop()
                         case Actions.Wall:
                             self.walls.pop()
-                        case Actions.SetLeft:
-                            self.node_left = None
                     self.node_left = None
             case arcade.key.S if key_modifiers & (arcade.key.MOD_CTRL | arcade.key.MOD_COMMAND):
                 new_walls = copy.deepcopy(self.walls)
@@ -255,6 +263,12 @@ class MyGame(arcade.Window):
                     l -= X_COUNT / 2
                     r -= Y_COUNT / 2
                     export.points.append((l, r))
+                exp_start_x, exp_start_y = self.start_pos
+                exp_start_x *= self.scale_factor.value
+                exp_start_y *= self.scale_factor.value
+                exp_start_x -= X_COUNT / 2
+                exp_start_y -= Y_COUNT / 2
+                export.start_pos = (exp_start_x, exp_start_y)
                 export.scale_factor = self.scale_factor.value
                 with open("level.json", "w") as f:
                     json.dump(export, f, default=vars, indent=4)
@@ -296,9 +310,13 @@ class MyGame(arcade.Window):
                                 l /= scale_factor
                                 r /= scale_factor
                                 points.append((l, r))
-                            # print(f"sf: {scale_factor:.2}")
-                            # print(f"walls: {walls}")
-                            # print(f"pts: {points}")
+                            start_pos: tuple[float, float] = d["start_pos"]
+                            exp_start_x, exp_start_y = start_pos
+                            exp_start_x += X_COUNT / 2
+                            exp_start_y += Y_COUNT / 2
+                            exp_start_x /= scale_factor
+                            exp_start_y /= scale_factor
+                            self.start_pos = exp_start_x, exp_start_y
                             self.walls = walls
                             self.points = points
                     except KeyError:
@@ -335,9 +353,9 @@ class MyGame(arcade.Window):
         Called when the user presses a mouse button.
         """
         match button:
+            case arcade.MOUSE_BUTTON_LEFT if key_modifiers & (arcade.key.MOD_ALT | arcade.key.MOD_OPTION):
+                self.start_pos = self.coord_x, self.coord_y
             case arcade.MOUSE_BUTTON_LEFT:
-                # self.coord_x = (x - self.cam_x) // self.rect_width if self.shift_pressed else (x - self.cam_x) / self.rect_width
-                # self.coord_y = (y - self.cam_y) // self.rect_height if self.shift_pressed else (x - self.cam_x) / self.rect_width
                 add_point: bool = True
                 for p in self.points:
                     c_x, c_z = p
@@ -353,16 +371,10 @@ class MyGame(arcade.Window):
                             return
                         else:
                             add_point = False
-                            # print(f"p x: {c_x}, p z: {c_z}, coord x: {self.coord_x}, coord y: {self.coord_y}")
                             if self.node_left is None:
-                                # print("setting left node")
                                 self.node_left = p
-                                self.undo_stack.append(Actions.SetLeft)
                             else:
-                                # print("creating line")
-
                                 left_x, left_z = self.node_left
-
                                 self.walls.append(Wall(c_x, c_z, left_x, left_z, 5.0, 0.0))
                                 self.node_left = None
                                 self.undo_stack.append(Actions.Wall)
@@ -370,7 +382,6 @@ class MyGame(arcade.Window):
                 if add_point:
                     self.points.append((float(self.coord_x), float(self.coord_y)))
                     self.undo_stack.append(Actions.Point)
-                    # print(f"screen x: {x}, screen y: {y}, coord x: {self.coord_x}, coord y: {self.coord_y}")
             case arcade.MOUSE_BUTTON_RIGHT:
                 self.node_left = None
 

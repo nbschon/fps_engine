@@ -1,10 +1,18 @@
-use cgmath::prelude::*;
+use cgmath::{
+    Deg, 
+    prelude::*
+};
+use crate::{
+    texture::*, 
+    wall::*, 
+    level::*, 
+    camera::*
+};
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
     window::Window,
 };
-use crate::{texture::*, wall::*, level::*, camera::*};
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -280,7 +288,10 @@ impl State {
             label: Some("diffuse_bind_group"),
         });
 
-        let camera = Camera::new((0.0, 2.0, 0.0), cgmath::Deg(-90.0), cgmath::Deg(-10.0));
+        let level: Level = load_from_json("level.json".to_string())?;
+        let (start_x, start_z) = level.start_pos;
+
+        let camera = Camera::new((start_x, 2.0, start_z), cgmath::Deg(-90.0), cgmath::Deg(-10.0));
         let projection = Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 100.0);
 
         let mut camera_uniform = CameraUniform::new();
@@ -342,11 +353,6 @@ impl State {
             )
         };
 
-        let level: Level = load_from_json("level.json".to_string())?;
-
-        // println!("all verts: {:?}", &level.all_verts());
-        // println!("all indices: {:?}", &level.all_indices());
-
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(&level.all_verts()[..]),
@@ -399,6 +405,18 @@ impl State {
         }
     }
 
+    fn cast_ray(&mut self) {
+        let pitch = &self.camera.pitch;
+        let ray_len = pitch.cos();
+        println!("length: {:?}", ray_len);
+        self.level.walls.iter().map(|w| {
+            let x_diff = w.right_x - w.left_x;
+            let z_diff = w.right_z - w.left_z;
+            ((x_diff * x_diff) + (z_diff * z_diff)).abs().sqrt()
+        }).for_each(|l| print!("len: {l}, "));
+        println!();
+    }
+
     pub fn input(&mut self, event: &WindowEvent) -> bool {
         match event {
             WindowEvent::KeyboardInput {
@@ -420,6 +438,12 @@ impl State {
                 ..
             } => {
                 self.mouse_pressed = *state == ElementState::Pressed;
+                if self.mouse_pressed {
+                    // let pitch_deg: Deg<f32> = self.camera.pitch.into();
+                    // let yaw_deg: Deg<f32> = self.camera.yaw.into();
+                    // println!("pitch deg: {:?}, pitch rad: {:?}, yaw deg: {:?}, yaw rad: {:?}", pitch_deg, self.camera.pitch, yaw_deg, self.camera.yaw);
+                    self.cast_ray();
+                }
                 true
             }
             _ => false,

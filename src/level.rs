@@ -17,6 +17,7 @@ pub struct Level {
     bottom_right: (f32, f32),
     #[serde(default)]
     top_right: (f32, f32),
+    pub start_pos: (f32, f32),
 }
 
 impl Level {

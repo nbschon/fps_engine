@@ -246,7 +246,11 @@ class MyGame(arcade.Window):
             case arcade.key.S if key_modifiers & (arcade.key.MOD_CTRL | arcade.key.MOD_COMMAND):
                 new_walls = copy.deepcopy(self.walls)
                 export = Export()
+                pivot = Y_COUNT / 2
                 for nw in new_walls:
+                    nw.left_z = pivot - (nw.left_z - pivot)
+                    nw.right_z = pivot - (nw.right_z - pivot)
+
                     nw.left_x *= self.scale_factor.value
                     nw.left_z *= self.scale_factor.value
                     nw.right_x *= self.scale_factor.value
@@ -257,18 +261,21 @@ class MyGame(arcade.Window):
                     nw.right_z -= Y_COUNT / 2
                     export.walls.append(nw)
                 for p in self.points:
-                    l, r = p
-                    l *= (self.scale_factor.value)
-                    r *= (self.scale_factor.value)
-                    l -= X_COUNT / 2
-                    r -= Y_COUNT / 2
-                    export.points.append((l, r))
-                exp_start_x, exp_start_y = self.start_pos
-                exp_start_x *= self.scale_factor.value
-                exp_start_y *= self.scale_factor.value
-                exp_start_x -= X_COUNT / 2
-                exp_start_y -= Y_COUNT / 2
-                export.start_pos = (exp_start_x, exp_start_y)
+                    x, z = p
+                    z = pivot - (z - pivot)
+
+                    x *= self.scale_factor.value
+                    z *= self.scale_factor.value
+                    x -= X_COUNT / 2
+                    z -= Y_COUNT / 2
+                    export.points.append((x, z))
+                ex_start_x, ex_start_y = self.start_pos
+                ex_start_y = pivot - (ex_start_y - pivot)
+                ex_start_x *= self.scale_factor.value
+                ex_start_y *= self.scale_factor.value
+                ex_start_x -= X_COUNT / 2
+                ex_start_y -= Y_COUNT / 2
+                export.start_pos = (ex_start_x, ex_start_y)
                 export.scale_factor = self.scale_factor.value
                 with open("level.json", "w") as f:
                     json.dump(export, f, default=vars, indent=4)
@@ -291,6 +298,7 @@ class MyGame(arcade.Window):
                             d = json.load(f)
                             scale_factor: float = d["scale_factor"]
                             walls: list[Wall] = []
+                            pivot = Y_COUNT / 2
                             for w in d["walls"]:
                                 wc = Wall(**w)
                                 wc.left_x += X_COUNT / 2
@@ -301,22 +309,28 @@ class MyGame(arcade.Window):
                                 wc.left_z /= scale_factor
                                 wc.right_x /= scale_factor
                                 wc.right_z /= scale_factor
+
+                                wc.left_z = pivot - (wc.left_z - pivot)
+                                wc.right_z = pivot - (wc.right_z - pivot)
+
                                 walls.append(wc)
                             points: list[tuple[float, float]] = []
                             for pt in d["points"]:
-                                l, r = pt
-                                l += X_COUNT / 2
-                                r += Y_COUNT / 2
-                                l /= scale_factor
-                                r /= scale_factor
-                                points.append((l, r))
+                                x, z = pt
+                                x += X_COUNT / 2
+                                z += Y_COUNT / 2
+                                x /= scale_factor
+                                z /= scale_factor
+                                z = pivot - (z - pivot)
+                                points.append((x, z))
                             start_pos: tuple[float, float] = d["start_pos"]
-                            exp_start_x, exp_start_y = start_pos
-                            exp_start_x += X_COUNT / 2
-                            exp_start_y += Y_COUNT / 2
-                            exp_start_x /= scale_factor
-                            exp_start_y /= scale_factor
-                            self.start_pos = exp_start_x, exp_start_y
+                            in_start_x, in_start_y = start_pos
+                            in_start_x += X_COUNT / 2
+                            in_start_y += Y_COUNT / 2
+                            in_start_x /= scale_factor
+                            in_start_y /= scale_factor
+                            in_start_y = pivot - (in_start_y - pivot)
+                            self.start_pos = in_start_x, in_start_y
                             self.walls = walls
                             self.points = points
                     except KeyError:

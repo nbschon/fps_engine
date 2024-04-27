@@ -181,19 +181,19 @@ class MyGame(arcade.Window):
             right_x = w.right_x * (self.rect_width + MARGIN)
             right_z = w.right_z * (self.rect_width + MARGIN)
 
-            y = (left_z - right_z)
-            x = (left_x - right_x)
+            y = (right_z - left_z)
+            x = (right_x - left_x)
 
             x_0 = (left_x + right_x) / 2
             y_0 = (left_z + right_z) / 2
-            rad = atan2(x, y)
+            rad = atan2(y, x)
             size = 1
             to_deg_num = 180 / size
             to_deg_denom = pi / size
             coeff = to_deg_num / to_deg_denom
-            # TODO: actually make this scale appropriately
-            x_1 = (x_0 + sin(rad + pi / 2) * coeff)
-            y_1 = (y_0 + cos(rad + pi / 2) * coeff)
+
+            x_1 = (x_0 + cos(rad - pi / 2) * coeff)
+            y_1 = (y_0 + sin(rad - pi / 2) * coeff)
 
             normal_line = arcade.create_line(x_0, y_0, x_1, y_1, color.RICH_BRILLIANT_LAVENDER)
             temp_lines.append(normal_line)
@@ -375,7 +375,7 @@ class MyGame(arcade.Window):
                                 self.node_left = p
                             else:
                                 left_x, left_z = self.node_left
-                                self.walls.append(Wall(c_x, c_z, left_x, left_z, 5.0, 0.0))
+                                self.walls.append(Wall(left_x, left_z, c_x, c_z, 5.0, 0.0))
                                 self.node_left = None
                                 self.undo_stack.append(Actions.Wall)
 

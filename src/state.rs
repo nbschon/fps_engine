@@ -1,15 +1,11 @@
-use std::iter::zip;
-
-use cgmath::{
-    Deg, 
-    prelude::*
-};
+use cgmath::{Deg, prelude::*, Point3};
 use crate::{
     texture::*, 
     wall::*, 
     level::*, 
     camera::*
 };
+use std::iter::zip;
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
@@ -357,6 +353,59 @@ impl State {
             )
         };
 
+        let hud_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+            label: Some("hud_bind_group_layout"),
+        });
+
+        let hud_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &hud_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view)
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler)
+                }
+            ],
+            label: Some("hud_bind_group")
+        });
+
+        let hud_render_pipeline = {
+            let shader = wgpu::ShaderModuleDescriptor {
+                label: Some("HUD Shader"),
+                source: wgpu::ShaderSource::Wgsl(include_str!("hud.wgsl").into()),
+            };
+            create_render_pipeline(
+                &device,
+                &render_pipeline_layout,
+                config.format,
+                None,
+                &[WallVertex::desc()],
+                shader
+            )
+        };
+
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(&level.all_verts()[..]),
@@ -372,8 +421,7 @@ impl State {
         let positions = [[-0.1, 0.1, 0.0], [-0.1, -0.1, 0.0], [0.1, -0.1, 0.0], [0.1, 0.1, 0.0]];
         let colors = [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]];
         let verts = zip(positions, colors)
-            .map(|(mut p, c)| {
-                p.reverse();
+            .map(|(p, c)| {
                 WallVertex::new(p, c)
             })
             .collect::<Vec<WallVertex>>();
@@ -434,15 +482,29 @@ impl State {
 
     fn cast_ray(&mut self) {
         let pitch = &self.camera.pitch;
-        let ray_len = pitch.cos();
-        let ray_height = pitch.sin();
-        println!("length: {:?}, height: {:?}", ray_len, ray_height);
-        // self.level.walls.iter().map(|w| {
-        //     let x_diff = w.right_x - w.left_x;
-        //     let z_diff = w.right_z - w.left_z;
-        //     ((x_diff * x_diff) + (z_diff * z_diff)).abs().sqrt()
-        // }).for_each(|l| print!("len: {l}, "));
-        // println!();
+        let yaw = &self.camera.yaw;
+        
+        let (mut ray_height, ray_len) = pitch.sin_cos();
+        let ray_x = yaw.cos() * ray_len * RAY_SCALE;
+        let ray_z = yaw.sin() * ray_len * RAY_SCALE;
+        ray_height *= RAY_SCALE;
+        
+        let mut end_point: Point3<f32> = (ray_x, ray_height, ray_z).into();
+        end_point.x += self.camera.position.x;
+        end_point.y += self.camera.position.y;
+        end_point.z += self.camera.position.z;
+        let deg: Deg<f32> = Deg::from(*yaw) + Deg::<f32>(90.0);
+        
+        let eqns = self.level.walls
+            .iter()
+            .map(|w| w.get_equation())
+            .collect::<Vec<(f32, f32, f32, f32)>>();
+        
+        let wall_ref = self.level.closest_wall(self.camera.position);
+        
+        println!("closest wall: {:?}", wall_ref);
+        
+        println!("start pt: {:?}, end pt: {:?}, rot: {:?}", self.camera.position, end_point, deg);
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
@@ -536,9 +598,9 @@ impl State {
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
 
-            render_pass.set_vertex_buffer(0, self.ch_vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.ch_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..6 as u32, 0, 0..1);
+            // render_pass.set_vertex_buffer(0, self.ch_vertex_buffer.slice(..));
+            // render_pass.set_index_buffer(self.ch_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            // render_pass.draw_indexed(0..6u32, 0, 0..1);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

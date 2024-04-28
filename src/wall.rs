@@ -1,3 +1,4 @@
+use cgmath::{Point3, Vector3};
 use serde::{Serialize, Deserialize};
 
 #[repr(C)]
@@ -100,5 +101,23 @@ impl Wall {
         let tr_vert = WallVertex::new(top_right, hex_as_srgb(0x175ED1));
 
         vec![tl_vert, bl_vert, br_vert, tr_vert]
+    }
+    
+    pub fn get_normal(&self) -> Vector3<f32> {
+        let top_left: Point3<f32> = [self.left_x, self.top, self.left_z].into();
+        let bottom_left: Point3<f32> = [self.left_x, self.bottom, self.left_z].into();
+        let top_right: Point3<f32>= [self.right_x, self.top, self.right_z].into();
+    
+        let pt_a = top_right - top_left;
+        let pt_b = bottom_left - top_left;
+        
+        pt_a.cross(pt_b)
+    }
+    
+    pub fn get_equation(&self) -> (f32, f32, f32, f32) {
+        let normal = self.get_normal();
+        let top_left: Point3<f32> = [self.left_x, self.top, self.left_z].into();
+        let k = (normal.x * top_left.x) + (normal.y * top_left.y) + (normal.z * top_left.z);
+        (normal.x, normal.y, normal.z, k)
     }
 }

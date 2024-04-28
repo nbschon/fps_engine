@@ -45,13 +45,36 @@ impl Level {
         }
 
         let start_idx = *indices.last().unwrap_or(&0);
-        let floor_idxs = vec![
+        let floor_idxs = [
             0, 1, 3,
             1, 2, 3,
         ];
-        floor_idxs.iter().for_each(|idc| indices.push(idc + (start_idx as u16 + 1)));
+        floor_idxs.iter().for_each(|idc| indices.push(idc + start_idx + 1));
 
         indices
+    }
+    
+    pub fn closest_wall(&self, pt: Point3<f32>) -> &Wall {
+        let mut wall_ref: &Wall = &self.walls[0];
+        let mut max_dist = f32::MAX;
+        
+        self.walls.iter().for_each(|w| {
+            let x = (w.right_x + w.left_x) / 2.0;
+            // let y = (w.top + w.bottom) / 2.0;
+            let z = (w.right_z + w.left_z) / 2.0;
+            let cam_x = pt.x;
+            // let cam_y = pt.y;
+            let cam_z = pt.z;
+
+            // let dist = (cam_x - x).powf(2.0) + (cam_y - y).powf(2.0) + (cam_z - z).powf(2.0);
+            let dist = (cam_x - x).powf(2.0) + (cam_z - z).powf(2.0);
+            if dist < max_dist {
+                max_dist = dist;
+                wall_ref = &w;
+            }
+        });
+        
+        wall_ref
     }
 }
 

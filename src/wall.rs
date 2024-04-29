@@ -2,7 +2,7 @@ use cgmath::{Point3, Vector3};
 use serde::{Serialize, Deserialize};
 
 #[repr(C)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct Wall {
     pub left_x: f32,
     pub left_z: f32,
@@ -114,10 +114,9 @@ impl Wall {
         pt_a.cross(pt_b)
     }
     
-    pub fn get_equation(&self) -> (f32, f32, f32, f32) {
+    pub fn get_k(&self) -> f32 {
         let normal = self.get_normal();
         let top_left: Point3<f32> = [self.left_x, self.top, self.left_z].into();
-        let k = (normal.x * top_left.x) + (normal.y * top_left.y) + (normal.z * top_left.z);
-        (normal.x, normal.y, normal.z, k)
+        (normal.x * top_left.x) + (normal.y * top_left.y) + (normal.z * top_left.z)
     }
 }

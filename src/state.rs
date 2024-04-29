@@ -48,7 +48,7 @@ impl VertexRaw {
 }
 
 impl InstanceRaw {
-    fn desc() -> wgpu::VertexBufferLayout::<'static> {
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
         use std::mem;
         wgpu::VertexBufferLayout { 
             array_stride: mem::size_of::<InstanceRaw>() as wgpu::BufferAddress, 
@@ -297,7 +297,7 @@ impl State {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera, &projection);
 
-        let camera_controller = CameraController::new(4.0, 0.3);
+        let camera_controller = CameraController::new(4.0, 0.3, 1.0);
 
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
@@ -497,10 +497,10 @@ impl State {
         
         let eqns = self.level.walls
             .iter()
-            .map(|w| w.get_equation())
-            .collect::<Vec<(f32, f32, f32, f32)>>();
+            .map(|w| w.get_k())
+            .collect::<Vec<f32>>();
         
-        let wall_ref = self.level.closest_wall(self.camera.position);
+        let wall_ref = self.level.closest_walls(self.camera.position);
         
         println!("closest wall: {:?}", wall_ref);
         
@@ -541,7 +541,9 @@ impl State {
     }
 
     pub fn update(&mut self, dt: instant::Duration) {
+        let walls_ref = self.level.closest_walls(self.camera.position);
         self.camera_controller.update_camera(&mut self.camera, dt);
+        self.camera_controller.do_collision(&mut self.camera, walls_ref);
         self.camera_uniform.update_view_proj(&self.camera, &self.projection);
         self.queue.write_buffer(
             &self.camera_buffer,

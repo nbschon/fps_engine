@@ -1,4 +1,5 @@
 use cgmath::*;
+use crate::wall::*;
 use instant::Duration;
 use std::f32::consts::FRAC_PI_2;
 use winit::{dpi::PhysicalPosition, event::*};
@@ -77,6 +78,8 @@ pub struct CameraController {
     amount_backward: f32,
     amount_up: f32,
     amount_down: f32,
+    movement_vec: Vector3<f32>,
+    radius: f32,
     rotate_horizontal: f32,
     rotate_vertical: f32,
     scroll: f32,
@@ -85,7 +88,7 @@ pub struct CameraController {
 }
 
 impl CameraController {
-    pub fn new(speed: f32, sensitivity: f32) -> Self {
+    pub fn new(speed: f32, sensitivity: f32, radius: f32) -> Self {
         Self {
             amount_left: 0.0,
             amount_right: 0.0,
@@ -93,6 +96,8 @@ impl CameraController {
             amount_backward: 0.0,
             amount_up: 0.0,
             amount_down: 0.0,
+            movement_vec: Vector3::zero(),
+            radius,
             rotate_horizontal: 0.0,
             rotate_vertical: 0.0,
             scroll: 0.0,
@@ -150,10 +155,14 @@ impl CameraController {
 
         // Move forward/backward and left/right
         let (yaw_sin, yaw_cos) = camera.yaw.0.sin_cos();
+        
         let forward = Vector3::new(yaw_cos, 0.0, yaw_sin).normalize();
         let right = Vector3::new(-yaw_sin, 0.0, yaw_cos).normalize();
-        camera.position += forward * (self.amount_forward - self.amount_backward) * self.speed * dt;
-        camera.position += right * (self.amount_right - self.amount_left) * self.speed * dt;
+        let v_forward = forward * (self.amount_forward - self.amount_backward) * self.speed * dt;
+        let v_right = right * (self.amount_right - self.amount_left) * self.speed * dt;
+        
+        self.movement_vec = v_forward + v_right;
+        camera.position += self.movement_vec;
 
         // Move in/out (aka. "zoom")
         // Note: this isn't an actual zoom. The camera's position
@@ -185,5 +194,25 @@ impl CameraController {
         } else if camera.pitch > Rad(SAFE_FRAC_PI_2) {
             camera.pitch = Rad(SAFE_FRAC_PI_2);
         }
+    }
+
+    pub fn do_collision(&mut self, cam: &mut Camera, walls_ref: Vec<Wall>) -> bool {
+        let collided = walls_ref.iter().filter(|w| {
+            let p_0 = Point3::new(w.left_x, cam.position.y, w.left_z);
+            let p_1 = Point3::new(w.right_x, cam.position.y, w.right_z);
+            let cam_start = cam.position - p_0;
+            let end_start = p_1 - p_0;
+            let t = cam_start.dot(end_start) / end_start.magnitude2();
+            let closest = p_0 + end_start * t.clamp(0.0, 1.0);
+            let dist = cam.position - closest;
+
+            dist.magnitude() < self.radius
+        });
+        
+        for x in collided {
+            println!("{:?}", x);
+        }
+        
+        true
     }
 }

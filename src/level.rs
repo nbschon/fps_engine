@@ -1,5 +1,6 @@
 use std::fs;
 use std::io;
+use cgmath::Point3;
 use serde::Deserialize;
 
 use crate::wall::*;
@@ -54,14 +55,14 @@ impl Level {
         indices
     }
     
-    pub fn closest_wall(&self, pt: Point3<f32>) -> &Wall {
+    pub fn closest_walls(&self, pt: Point3<f32>) -> Vec<Wall> {
         let mut wall_ref: &Wall = &self.walls[0];
         let mut max_dist = f32::MAX;
         
-        self.walls.iter().for_each(|w| {
-            let x = (w.right_x + w.left_x) / 2.0;
+        let mut idx_by_dist = self.walls.iter().enumerate().map(|(idx, wall)| {
+            let x = (wall.right_x + wall.left_x) / 2.0;
             // let y = (w.top + w.bottom) / 2.0;
-            let z = (w.right_z + w.left_z) / 2.0;
+            let z = (wall.right_z + wall.left_z) / 2.0;
             let cam_x = pt.x;
             // let cam_y = pt.y;
             let cam_z = pt.z;
@@ -70,11 +71,21 @@ impl Level {
             let dist = (cam_x - x).powf(2.0) + (cam_z - z).powf(2.0);
             if dist < max_dist {
                 max_dist = dist;
-                wall_ref = &w;
+                wall_ref = &wall;
             }
+            (idx, dist)
+        }).collect::<Vec<(usize, f32)>>();
+        
+        idx_by_dist.sort_by(|x, y| {
+            let (_, dist_1) = x;
+            let (_, dist_2) = y;
+            dist_1.partial_cmp(dist_2).unwrap()
         });
         
-        wall_ref
+        let walls_by_idx = idx_by_dist.iter().map(|(idx, _)| {
+            self.walls[*idx]
+        }).collect::<Vec<Wall>>();
+        walls_by_idx[..3].to_vec()
     }
 }
 

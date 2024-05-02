@@ -4,7 +4,7 @@ import copy
 import json
 from arcade import color
 from enum import Enum, auto
-from math import cos, e, sin, atan2, pi
+from math import cos, sin, atan2, sqrt, pi
 from typing import Optional
 
 class ScaleFactor(Enum):
@@ -112,7 +112,6 @@ class MyGame(arcade.Window):
         WIDTH = (self.rect_width + (MARGIN)) * X_COUNT
         arcade.draw_line(0, 0, WIDTH, 0, color.RED)
 
-        # TODO: make this less dumb
         cursor_x = int(self.mouse_x // (self.rect_width + MARGIN)) * (self.rect_width + MARGIN) if self.shift_pressed else self.mouse_x
         cursor_y = int(self.mouse_y // (self.rect_height + MARGIN)) * (self.rect_width + MARGIN) if self.shift_pressed else self.mouse_y
 
@@ -143,7 +142,7 @@ class MyGame(arcade.Window):
         arcade.draw_text(f"# points: {len(self.points)}", start_x, start_y, color.WHITE, 20)
         arcade.draw_text(f"# lines:  {len(self.line_shape_list)}", start_x, start_y - 30, color.WHITE, 20)
 
-        arcade.draw_text(f"level export scale factor: {self.scale_factor.value}", SCREEN_WIDTH - 360, start_y, color.WHITE, 20)
+        arcade.draw_text(f"level scale: {self.scale_factor.value}", SCREEN_WIDTH - 200, start_y, color.WHITE, 20)
 
     def on_update(self, delta_time):
         """
@@ -153,7 +152,7 @@ class MyGame(arcade.Window):
         """
         temp_points = arcade.ShapeElementList()
         for p in self.points:
-            point_col = color.ORANGE if self.node_left == p else color.CYAN
+            point_col = color.BRIGHT_PINK if self.node_left == p else color.CYAN
             circle_x, circle_y = p
             point = arcade.create_ellipse_filled(
                 circle_x * (self.rect_width + (MARGIN)),# + radius / 2, 
@@ -173,7 +172,8 @@ class MyGame(arcade.Window):
             new_left_z = left_z * (self.rect_width + MARGIN)
             new_right_x = right_x * (self.rect_width + MARGIN)
             new_right_z = right_z * (self.rect_width + MARGIN)
-            line = arcade.create_line(new_left_x, new_left_z, new_right_x, new_right_z, color.RADICAL_RED)
+            col = color.RED_ORANGE if sqrt((new_right_x - new_left_x) ** 2 + (new_right_z - new_left_z) ** 2) >= 200.0 else color.AZURE
+            line = arcade.create_line(new_left_x, new_left_z, new_right_x, new_right_z, col)
             temp_lines.append(line)
         for w in self.walls:
             left_x = w.left_x * (self.rect_width + MARGIN)
@@ -218,14 +218,6 @@ class MyGame(arcade.Window):
             case arcade.key.MINUS:
                 self.rect_width = max(self.rect_width - 2, 10)
                 self.rect_height = max(self.rect_height - 2, 10)
-            case arcade.key.A:
-                for w in self.walls:
-                    left_x, left_z = w.left
-                    right_x, right_z = w.right
-                    y = (right_z - left_z)
-                    x = (right_x - left_x)
-                    rad = atan2(y, x)
-                    print(f"rad: {rad}, deg: {(rad * 180) / pi}")
             case arcade.key.C if key_modifiers & (arcade.key.MOD_ALT | arcade.key.MOD_OPTION):
                 self.walls.clear()
             case arcade.key.C if key_modifiers & (arcade.key.MOD_CTRL | arcade.key.MOD_COMMAND):
@@ -244,41 +236,7 @@ class MyGame(arcade.Window):
                             self.walls.pop()
                     self.node_left = None
             case arcade.key.S if key_modifiers & (arcade.key.MOD_CTRL | arcade.key.MOD_COMMAND):
-                new_walls = copy.deepcopy(self.walls)
-                export = Export()
-                pivot = Y_COUNT / 2
-                for nw in new_walls:
-                    nw.left_z = pivot - (nw.left_z - pivot)
-                    nw.right_z = pivot - (nw.right_z - pivot)
-
-                    nw.left_x *= self.scale_factor.value
-                    nw.left_z *= self.scale_factor.value
-                    nw.right_x *= self.scale_factor.value
-                    nw.right_z *= self.scale_factor.value
-                    nw.left_x -= X_COUNT / 2
-                    nw.left_z -= Y_COUNT / 2
-                    nw.right_x -= X_COUNT / 2
-                    nw.right_z -= Y_COUNT / 2
-                    export.walls.append(nw)
-                for p in self.points:
-                    x, z = p
-                    z = pivot - (z - pivot)
-
-                    x *= self.scale_factor.value
-                    z *= self.scale_factor.value
-                    x -= X_COUNT / 2
-                    z -= Y_COUNT / 2
-                    export.points.append((x, z))
-                ex_start_x, ex_start_y = self.start_pos
-                ex_start_y = pivot - (ex_start_y - pivot)
-                ex_start_x *= self.scale_factor.value
-                ex_start_y *= self.scale_factor.value
-                ex_start_x -= X_COUNT / 2
-                ex_start_y -= Y_COUNT / 2
-                export.start_pos = (ex_start_x, ex_start_y)
-                export.scale_factor = self.scale_factor.value
-                with open("level.json", "w") as f:
-                    json.dump(export, f, default=vars, indent=4)
+                self.export_lvl()
             case arcade.key.S:
                 match self.scale_factor:
                     case ScaleFactor.One:
@@ -292,50 +250,7 @@ class MyGame(arcade.Window):
                     case ScaleFactor.Two:
                         self.scale_factor = ScaleFactor.One
             case arcade.key.O if key_modifiers & (arcade.key.MOD_CTRL | arcade.key.MOD_COMMAND):
-                if not self.points and not self.walls:
-                    try:
-                        with open("level.json") as f:
-                            d = json.load(f)
-                            scale_factor: float = d["scale_factor"]
-                            walls: list[Wall] = []
-                            pivot = Y_COUNT / 2
-                            for w in d["walls"]:
-                                wc = Wall(**w)
-                                wc.left_x += X_COUNT / 2
-                                wc.left_z += Y_COUNT / 2
-                                wc.right_x += X_COUNT / 2
-                                wc.right_z += Y_COUNT / 2
-                                wc.left_x /= scale_factor
-                                wc.left_z /= scale_factor
-                                wc.right_x /= scale_factor
-                                wc.right_z /= scale_factor
-
-                                wc.left_z = pivot - (wc.left_z - pivot)
-                                wc.right_z = pivot - (wc.right_z - pivot)
-
-                                walls.append(wc)
-                            points: list[tuple[float, float]] = []
-                            for pt in d["points"]:
-                                x, z = pt
-                                x += X_COUNT / 2
-                                z += Y_COUNT / 2
-                                x /= scale_factor
-                                z /= scale_factor
-                                z = pivot - (z - pivot)
-                                points.append((x, z))
-                            start_pos: tuple[float, float] = d["start_pos"]
-                            in_start_x, in_start_y = start_pos
-                            in_start_x += X_COUNT / 2
-                            in_start_y += Y_COUNT / 2
-                            in_start_x /= scale_factor
-                            in_start_y /= scale_factor
-                            in_start_y = pivot - (in_start_y - pivot)
-                            self.start_pos = in_start_x, in_start_y
-                            self.walls = walls
-                            self.points = points
-                    except KeyError:
-                        print("bad level format!")
-
+                self.import_lvl()
             case _:
                 pass
 
@@ -406,6 +321,88 @@ class MyGame(arcade.Window):
         match button:
             case arcade.MOUSE_BUTTON_RIGHT:
                 self.pan_cam = False
+
+    def export_lvl(self):
+        new_walls = copy.deepcopy(self.walls)
+        export = Export()
+        pivot = Y_COUNT / 2
+        for nw in new_walls:
+            nw.left_z = pivot - (nw.left_z - pivot)
+            nw.right_z = pivot - (nw.right_z - pivot)
+
+            nw.left_x *= self.scale_factor.value
+            nw.left_z *= self.scale_factor.value
+            nw.right_x *= self.scale_factor.value
+            nw.right_z *= self.scale_factor.value
+            nw.left_x -= X_COUNT / 2
+            nw.left_z -= Y_COUNT / 2
+            nw.right_x -= X_COUNT / 2
+            nw.right_z -= Y_COUNT / 2
+            export.walls.append(nw)
+        for p in self.points:
+            x, z = p
+            z = pivot - (z - pivot)
+
+            x *= self.scale_factor.value
+            z *= self.scale_factor.value
+            x -= X_COUNT / 2
+            z -= Y_COUNT / 2
+            export.points.append((x, z))
+        ex_start_x, ex_start_y = self.start_pos
+        ex_start_y = pivot - (ex_start_y - pivot)
+        ex_start_x *= self.scale_factor.value
+        ex_start_y *= self.scale_factor.value
+        ex_start_x -= X_COUNT / 2
+        ex_start_y -= Y_COUNT / 2
+        export.start_pos = (ex_start_x, ex_start_y)
+        export.scale_factor = self.scale_factor.value
+        with open("level.json", "w") as f:
+            json.dump(export, f, default=vars, indent=4)
+
+    def import_lvl(self):
+        if not self.points and not self.walls:
+            try:
+                with open("level.json") as f:
+                    d = json.load(f)
+                    scale_factor: float = d["scale_factor"]
+                    walls: list[Wall] = []
+                    pivot = Y_COUNT / 2
+                    for w in d["walls"]:
+                        wc = Wall(**w)
+                        wc.left_x += X_COUNT / 2
+                        wc.left_z += Y_COUNT / 2
+                        wc.right_x += X_COUNT / 2
+                        wc.right_z += Y_COUNT / 2
+                        wc.left_x /= scale_factor
+                        wc.left_z /= scale_factor
+                        wc.right_x /= scale_factor
+                        wc.right_z /= scale_factor
+
+                        wc.left_z = pivot - (wc.left_z - pivot)
+                        wc.right_z = pivot - (wc.right_z - pivot)
+
+                        walls.append(wc)
+                    points: list[tuple[float, float]] = []
+                    for pt in d["points"]:
+                        x, z = pt
+                        x += X_COUNT / 2
+                        z += Y_COUNT / 2
+                        x /= scale_factor
+                        z /= scale_factor
+                        z = pivot - (z - pivot)
+                        points.append((x, z))
+                    start_pos: tuple[float, float] = d["start_pos"]
+                    in_start_x, in_start_y = start_pos
+                    in_start_x += X_COUNT / 2
+                    in_start_y += Y_COUNT / 2
+                    in_start_x /= scale_factor
+                    in_start_y /= scale_factor
+                    in_start_y = pivot - (in_start_y - pivot)
+                    self.start_pos = in_start_x, in_start_y
+                    self.walls = walls
+                    self.points = points
+            except KeyError:
+                print("bad level format!")
 
 def main():
     game = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)

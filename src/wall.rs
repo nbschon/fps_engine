@@ -1,4 +1,5 @@
-use cgmath::{Point3, Vector3};
+use cgmath::{Point3, Vector3, num_traits::WrappingAdd};
+use rand::{Rng, thread_rng};
 use serde::{Serialize, Deserialize};
 
 #[repr(C)]
@@ -56,6 +57,13 @@ fn comp_to_srgb(comp: u8) -> f32 {
     ((comp as f32 / 255.0 + 0.055) / 1.055).powf(2.4)
 }
 
+fn hex_to_comp(color: u32) -> (u8, u8, u8) {
+    let r = ((color & 0xFF0000) >> 16) as u8;
+    let g = ((color & 0x00FF00) >> 8) as u8;
+    let b = (color & 0x0000FF) as u8;
+    (r, g, b)
+}
+
 pub fn hex_as_srgb(color: u32) -> [f32; 3] {
     let r = ((color & 0xFF0000) >> 16) as u8;
     let g = ((color & 0x00FF00) >> 8) as u8;
@@ -64,6 +72,38 @@ pub fn hex_as_srgb(color: u32) -> [f32; 3] {
     let g_adj = comp_to_srgb(g);
     let b_adj = comp_to_srgb(b);
     [r_adj, g_adj, b_adj]
+}
+
+pub fn jitter_color(color: u32, delta: Option<u8>) -> u32 {
+    let (mut r, mut g, mut b) = hex_to_comp(color);
+    let mut rng = thread_rng();
+    let upper_range = delta.unwrap_or(15);
+    let r_delta: u8 = rng.gen_range(0..upper_range);
+    let g_delta: u8 = rng.gen_range(0..upper_range);
+    let b_delta: u8 = rng.gen_range(0..upper_range);
+    let r_add: bool = rng.gen::<bool>();
+    let g_add: bool = rng.gen::<bool>();
+    let b_add: bool = rng.gen::<bool>();
+
+    if r_add { 
+        r = r.saturating_add(r_delta);
+    } else {
+        r = r.wrapping_add((r_delta ^ 0xFF).wrapping_add(1));
+    }
+
+    if g_add { 
+        g = g.saturating_add(g_delta);
+    } else {
+        g = g.wrapping_add((g_delta ^ 0xFF).wrapping_add(1));
+    }
+
+    if b_add { 
+        b = b.saturating_add(b_delta);
+    } else {
+        b = b.wrapping_add((b_delta ^ 0xFF).wrapping_add(1));
+    }
+
+    (r as u32) << 16 | (g as u32) << 8 | b as u32
 }
 
 impl Wall {
@@ -95,10 +135,12 @@ impl Wall {
         let bottom_right = [self.right_x, self.bottom, self.right_z];
         let top_right = [self.right_x, self.top, self.right_z];
 
-        let tl_vert = WallVertex::new(top_left, hex_as_srgb(0x4287F5));
-        let bl_vert = WallVertex::new(bottom_left, hex_as_srgb(0x4779C9));
-        let br_vert = WallVertex::new(bottom_right, hex_as_srgb(0x4287F5));
-        let tr_vert = WallVertex::new(top_right, hex_as_srgb(0x175ED1));
+        let cornflower_blue: u32 = 0x4287F5;
+
+        let tl_vert = WallVertex::new(top_left, hex_as_srgb(jitter_color(cornflower_blue, None)));
+        let bl_vert = WallVertex::new(bottom_left, hex_as_srgb(jitter_color(cornflower_blue, Some(25))));
+        let br_vert = WallVertex::new(bottom_right, hex_as_srgb(jitter_color(cornflower_blue, None)));
+        let tr_vert = WallVertex::new(top_right, hex_as_srgb(jitter_color(cornflower_blue, Some(25))));
 
         vec![tl_vert, bl_vert, br_vert, tr_vert]
     }
@@ -116,7 +158,12 @@ impl Wall {
     
     pub fn get_k(&self) -> f32 {
         let normal = self.get_normal();
-        let top_left: Point3<f32> = [self.left_x, self.top, self.left_z].into();
-        (normal.x * top_left.x) + (normal.y * top_left.y) + (normal.z * top_left.z)
+        let pt: Point3<f32> = [self.left_x, self.top, self.left_z].into();
+        (normal.x * pt.x) + (normal.y * pt.y) + (normal.z * pt.z)
+    }
+
+    pub fn get_coeffs(&self) -> (f32, f32, f32, f32) {
+        let normal = self.get_normal();
+        (normal.x, normal.y, normal.z, self.get_k())
     }
 }

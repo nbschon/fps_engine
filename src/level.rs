@@ -56,9 +56,6 @@ impl Level {
     }
     
     pub fn closest_walls(&self, pt: Point3<f32>) -> Vec<Wall> {
-        let mut wall_ref: &Wall = &self.walls[0];
-        let mut max_dist = f32::MAX;
-        
         let mut idx_by_dist = self.walls.iter().enumerate().map(|(idx, wall)| {
             let x = (wall.right_x + wall.left_x) / 2.0;
             // let y = (w.top + w.bottom) / 2.0;
@@ -69,10 +66,6 @@ impl Level {
 
             // let dist = (cam_x - x).powf(2.0) + (cam_y - y).powf(2.0) + (cam_z - z).powf(2.0);
             let dist = (cam_x - x).powf(2.0) + (cam_z - z).powf(2.0);
-            if dist < max_dist {
-                max_dist = dist;
-                wall_ref = &wall;
-            }
             (idx, dist)
         }).collect::<Vec<(usize, f32)>>();
         

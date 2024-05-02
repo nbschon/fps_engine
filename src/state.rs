@@ -1,15 +1,16 @@
 use cgmath::{Deg, prelude::*, Point3};
-use crate::{
-    texture::*, 
-    wall::*, 
-    level::*, 
-    camera::*
-};
 use std::iter::zip;
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
     window::Window,
+};
+
+use crate::{
+    texture::*,
+    wall::*,
+    level::*,
+    camera::*,
 };
 
 #[repr(C)]
@@ -425,7 +426,7 @@ impl State {
                 WallVertex::new(p, c)
             })
             .collect::<Vec<WallVertex>>();
-        let indices = [0, 1, 3, 1, 2, 3];
+        let indices = &[0, 1, 3, 1, 2, 3];
 
         let ch_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Crosshair Vertex Buffer"),
@@ -498,13 +499,23 @@ impl State {
         let eqns = self.level.walls
             .iter()
             .map(|w| w.get_k())
+            // .for_each(|k| println!("{}", k));
             .collect::<Vec<f32>>();
         
         let wall_ref = self.level.closest_walls(self.camera.position);
-        
-        println!("closest wall: {:?}", wall_ref);
+        wall_ref.iter().for_each(|w| {
+            let pt_1 = Point3::new(w.left_x, w.top, w.left_z);
+            let pt_2 = Point3::new(w.left_x, w.bottom, w.left_z);
+            let pt_3 = Point3::new(w.right_x, w.top, w.right_z);
+            println!("pt 1: {:?}, pt 2: {:?}, pt 3: {:?}, k: {}", pt_1, pt_2, pt_3, w.get_k());
+        });
         
         println!("start pt: {:?}, end pt: {:?}, rot: {:?}", self.camera.position, end_point, deg);
+
+        let num = 32u8;
+        let d = 5u8;
+        let d_twos = (d ^ 0xFF).wrapping_add(1);
+        println!("start num: {}, add: {}, sub: {}", num, num + d, num.wrapping_add(d_twos));
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
@@ -529,9 +540,6 @@ impl State {
             } => {
                 self.mouse_pressed = *state == ElementState::Pressed;
                 if self.mouse_pressed {
-                    // let pitch_deg: Deg<f32> = self.camera.pitch.into();
-                    // let yaw_deg: Deg<f32> = self.camera.yaw.into();
-                    // println!("pitch deg: {:?}, pitch rad: {:?}, yaw deg: {:?}, yaw rad: {:?}", pitch_deg, self.camera.pitch, yaw_deg, self.camera.yaw);
                     self.cast_ray();
                 }
                 true

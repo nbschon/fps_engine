@@ -1,8 +1,9 @@
 use cgmath::*;
-use crate::wall::*;
 use instant::Duration;
 use std::f32::consts::FRAC_PI_2;
 use winit::{dpi::PhysicalPosition, event::*};
+
+use crate::wall::*;
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: Matrix4<f32> = Matrix4::new(
@@ -196,21 +197,26 @@ impl CameraController {
         }
     }
 
-    pub fn do_collision(&mut self, cam: &mut Camera, walls_ref: Vec<Wall>) -> bool {
-        let collided = walls_ref.iter().filter(|w| {
-            let p_0 = Point3::new(w.left_x, cam.position.y, w.left_z);
-            let p_1 = Point3::new(w.right_x, cam.position.y, w.right_z);
-            let cam_start = cam.position - p_0;
-            let end_start = p_1 - p_0;
-            let t = cam_start.dot(end_start) / end_start.magnitude2();
-            let closest = p_0 + end_start * t.clamp(0.0, 1.0);
-            let dist = cam.position - closest;
+    fn are_colliding(&self, pt: Point3<f32>, wall: &Wall) -> bool {
+        let p_0 = Point3::new(wall.left_x, pt.y, wall.left_z);
+        let p_1 = Point3::new(wall.right_x, pt.y, wall.right_z);
+        let cam_start = pt - p_0;
+        let end_start = p_1 - p_0;
+        let t = cam_start.dot(end_start) / end_start.magnitude2();
+        let closest = p_0 + end_start * t.clamp(0.0, 1.0);
+        let dist = pt - closest;
 
-            dist.magnitude() < self.radius
-        });
+        dist.magnitude() < self.radius
+    }
+
+    pub fn do_collision(&mut self, cam: &mut Camera, walls_ref: Vec<Wall>) -> bool {
+        let old_pos = cam.position;
+        let collided = walls_ref.iter().filter(|w| self.are_colliding(old_pos, w));
         
         for x in collided {
-            println!("{:?}", x);
+            while self.are_colliding(cam.position, x) {
+                cam.position -= x.get_normal().normalize() / 100.0;
+            }
         }
         
         true
